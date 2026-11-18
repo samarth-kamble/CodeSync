@@ -15,7 +15,7 @@ await server.register(cors, {
 server.get('/health', async () => {
   return {
     status: 'ok',
-    service: 'leetsync-oauth-backend',
+    service: 'codesync-oauth-backend',
     timestamp: new Date().toISOString(),
   };
 });
@@ -33,7 +33,7 @@ const start = async () => {
     const port = Number(process.env.PORT) || 3000;
     const host = process.env.HOST || '0.0.0.0';
     await server.listen({ port, host });
-    console.log(`[LeetSync OAuth] Server listening on http://${host}:${port}`);
+    console.log(`[CodeSync OAuth] Server listening on http://${host}:${port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

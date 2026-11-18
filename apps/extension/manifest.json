@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LeetSync - LeetCode to GitHub",
+  "name": "CodeSync - LeetCode to GitHub",
   "version": "0.1.0",
   "description": "Automatically synchronize accepted LeetCode coding solutions to your GitHub repository.",
   "icons": {
@@ -10,7 +10,11 @@
   },
   "action": {
     "default_popup": "index.html",
-    "default_title": "LeetSync"
+    "default_title": "CodeSync"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
   },
   "background": {
     "service_worker": "src/background/index.ts",
@@ -35,4 +39,3 @@
     "https://api.github.com/*"
   ]
 }
-
