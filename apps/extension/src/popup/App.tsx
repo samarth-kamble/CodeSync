@@ -5,14 +5,15 @@ import { AccountStatusCard } from './components/AccountStatusCard';
 import { RepoStatusCard } from './components/RepoStatusCard';
 import { StatsCard } from './components/StatsCard';
 import { RecentSubmissionsList } from './components/RecentSubmissionsList';
+import { initiateGitHubOAuth, disconnectGitHubAccount } from '../github/auth';
 
 export default function App() {
-  const [auth, setAuth] = useStorage('auth');
+  const [auth] = useStorage('auth');
   const [selectedRepo] = useStorage('selectedRepo');
   const [preferences, setPreferences] = useStorage('preferences');
   const [syncHistory] = useStorage('syncHistory');
 
-  const openSettings = (tab?: string) => {
+  const openSettings = (_tab?: string) => {
     if (chrome?.runtime?.openOptionsPage) {
       chrome.runtime.openOptionsPage();
     } else {
@@ -20,18 +21,18 @@ export default function App() {
     }
   };
 
-  const handleConnect = () => {
-    // In Phase 4, this triggers OAuth flow; for now, direct to Settings
-    openSettings('account');
+  const handleConnect = async () => {
+    try {
+      await initiateGitHubOAuth();
+    } catch (err: unknown) {
+      console.warn('[CodeSync] OAuth initiation note:', err);
+      // Open settings page so user can see detailed auth options or paste token
+      openSettings('account');
+    }
   };
 
   const handleDisconnect = async () => {
-    await setAuth({
-      isConnected: false,
-      user: null,
-      token: null,
-      lastConnectedAt: null,
-    });
+    await disconnectGitHubAccount();
   };
 
   const handleToggleAutoSync = async (checked: boolean) => {
@@ -75,7 +76,11 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 py-3.5 space-y-3">
         {/* GitHub Account Status */}
-        <AccountStatusCard auth={auth} onConnect={handleConnect} onDisconnect={handleDisconnect} />
+        <AccountStatusCard
+          auth={auth}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+        />
 
         {/* Repository & Branch Configuration */}
         <RepoStatusCard
