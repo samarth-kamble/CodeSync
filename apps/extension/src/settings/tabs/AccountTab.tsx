@@ -4,7 +4,8 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { GithubIcon } from '../../components/icons/GithubIcon';
-import { GitBranch, FolderGit2, CheckCircle2, LogOut, Key, ExternalLink } from 'lucide-react';
+import { RepoPicker } from '../../components/ui/RepoPicker';
+import { LogOut, Key, ExternalLink, AlertCircle } from 'lucide-react';
 import type { AuthState, SelectedRepository } from '@leetsync/shared';
 import {
   initiateGitHubOAuth,
@@ -20,9 +21,6 @@ interface AccountTabProps {
 }
 
 export function AccountTab({ auth, selectedRepo, onUpdateAuth, onUpdateRepo }: AccountTabProps) {
-  const [repoInput, setRepoInput] = useState(selectedRepo?.fullName || 'samarth-kamble/CodeSync');
-  const [branchInput, setBranchInput] = useState(selectedRepo?.targetBranch || 'main');
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,29 +57,6 @@ export function AccountTab({ auth, selectedRepo, onUpdateAuth, onUpdateRepo }: A
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleSaveRepo = async () => {
-    const parts = repoInput.trim().split('/');
-    if (parts.length !== 2) {
-      alert('Please enter repository in format "owner/repo"');
-      return;
-    }
-
-    const [owner, name] = parts;
-    const newRepo: SelectedRepository = {
-      id: selectedRepo?.id || Date.now(),
-      owner,
-      name,
-      fullName: repoInput.trim(),
-      isPrivate: false,
-      defaultBranch: branchInput.trim() || 'main',
-      targetBranch: branchInput.trim() || 'main',
-    };
-
-    await onUpdateRepo(newRepo);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
   };
 
   const handleDisconnect = async () => {
@@ -220,58 +195,25 @@ export function AccountTab({ auth, selectedRepo, onUpdateAuth, onUpdateRepo }: A
           <CardTitle>Target Repository & Branch</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-xs text-slate-400">
-            Specify the GitHub repository and branch where problem folders (`0704-binary-search/`)
-            and solutions will be committed.
-          </p>
-
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Repository (`owner/repository-name`)
-              </label>
-              <div className="relative">
-                <FolderGit2 className="w-4 h-4 text-slate-500 absolute left-2.5 top-2" />
-                <Input
-                  value={repoInput}
-                  onChange={(e) => setRepoInput(e.target.value)}
-                  placeholder="e.g. username/leetcode-practice"
-                  className="pl-8"
-                />
+          {auth.isConnected && auth.token ? (
+            <RepoPicker
+              token={auth.token}
+              selectedRepo={selectedRepo}
+              onSelectRepo={async (repo) => {
+                await onUpdateRepo(repo);
+              }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 rounded-lg bg-slate-950/60 border border-slate-800 text-center space-y-3">
+              <AlertCircle className="w-8 h-8 text-slate-500" />
+              <div>
+                <p className="text-sm font-medium text-slate-200">GitHub Connection Required</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                  Please connect your GitHub account above using OAuth or a Personal Access Token to browse repositories and select a branch.
+                </p>
               </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Target Branch
-              </label>
-              <div className="relative">
-                <GitBranch className="w-4 h-4 text-slate-500 absolute left-2.5 top-2" />
-                <Input
-                  value={branchInput}
-                  onChange={(e) => setBranchInput(e.target.value)}
-                  placeholder="e.g. main"
-                  className="pl-8 font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <Button
-                type="button"
-                onClick={handleSaveRepo}
-                className="gap-2"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Save Repository Configuration
-              </Button>
-
-              {saveSuccess && (
-                <span className="text-xs text-emerald-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Saved successfully
-                </span>
-              )}
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

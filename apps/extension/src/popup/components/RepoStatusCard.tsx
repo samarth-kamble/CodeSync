@@ -1,7 +1,8 @@
-import { GitBranch, FolderGit2, ExternalLink } from 'lucide-react';
+import { GitBranch, FolderGit2, ExternalLink, Lock, Globe } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Switch } from '../../components/ui/Switch';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import type { SelectedRepository } from '@leetsync/shared';
 
 interface RepoStatusCardProps {
@@ -41,9 +42,22 @@ export function RepoStatusCard({
                 >
                   {selectedRepo.fullName}
                 </a>
-                <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                  <GitBranch className="w-3 h-3 text-slate-500" />
-                  <span>{selectedRepo.targetBranch || selectedRepo.defaultBranch}</span>
+                <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                  <span className="flex items-center gap-1 font-mono text-[10px] text-slate-300">
+                    <GitBranch className="w-3 h-3 text-slate-500" />
+                    {selectedRepo.targetBranch || selectedRepo.defaultBranch}
+                  </span>
+                  <Badge variant="outline" className="text-[9px] py-0 px-1.5 flex items-center gap-1">
+                    {selectedRepo.isPrivate ? (
+                      <>
+                        <Lock className="w-2.5 h-2.5 text-amber-400" /> Private
+                      </>
+                    ) : (
+                      <>
+                        <Globe className="w-2.5 h-2.5 text-slate-400" /> Public
+                      </>
+                    )}
+                  </Badge>
                 </div>
               </div>
             </div>
