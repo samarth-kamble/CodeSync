@@ -44,8 +44,13 @@ export interface SyncHistoryEntry {
   solutionFilePath: string;
   readmeFilePath: string;
   commitSha?: string;
+  commitUrl?: string;
   status: 'SUCCESS' | 'FAILED' | 'SKIPPED';
   timestamp: number;
+  runtimeMs?: number;
+  runtimeDisplay?: string;
+  memoryBytes?: number;
+  memoryDisplay?: string;
   error?: string;
 }
 
