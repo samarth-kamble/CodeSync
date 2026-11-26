@@ -2,6 +2,7 @@ import {
   isAcceptedSubmission,
   type SubmissionData,
   type SyncHistoryEntry,
+  type UserPreferences,
 } from '@leetsync/shared';
 import { getStorageItem, setStorageItem } from '../storage/index';
 import { fetchProblemMetadata } from '../leetcode/client';
@@ -9,9 +10,36 @@ import { syncSubmissionToGitHub, type SyncResult } from '../github/sync-engine';
 
 console.log('[CodeSync] Background service worker initialized.');
 
-chrome.runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
-  console.log('[CodeSync] Extension installed/updated. Reason:', details.reason);
-});
+if (typeof chrome !== 'undefined' && chrome?.runtime?.onInstalled) {
+  chrome.runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
+    console.log('[CodeSync] Extension installed/updated. Reason:', details.reason);
+  });
+}
+
+export function shouldSendNotification(preferences?: Partial<UserPreferences> | null): boolean {
+  return preferences?.enableNotifications !== false;
+}
+
+function dispatchNotification(
+  id: string,
+  title: string,
+  message: string,
+  priority: 1 | 2,
+  preferences?: Partial<UserPreferences> | null,
+): void {
+  if (!shouldSendNotification(preferences)) {
+    return;
+  }
+  if (typeof chrome !== 'undefined' && chrome?.notifications?.create) {
+    chrome.notifications.create(id, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+      title,
+      message,
+      priority,
+    });
+  }
+}
 
 async function handleSubmissionDetected(
   submission: SubmissionData,
@@ -30,7 +58,7 @@ async function handleSubmissionDetected(
   const auth = await getStorageItem('auth');
   const selectedRepo = await getStorageItem('selectedRepo');
   const preferences = await getStorageItem('preferences');
-  const syncHistory = await getStorageItem('syncHistory') || [];
+  const syncHistory = (await getStorageItem('syncHistory')) || [];
 
   // 3. Validate user configuration
   if (!auth?.isConnected || !auth.token) {
@@ -68,6 +96,7 @@ async function handleSubmissionDetected(
     const newEntry: SyncHistoryEntry = {
       id: `sync_${Date.now()}_${submission.submissionId}`,
       submissionId: submission.submissionId,
+      questionId: submission.questionId,
       questionFrontendId: submission.questionFrontendId,
       questionTitle: submission.questionTitle,
       questionSlug: submission.questionSlug,
@@ -90,15 +119,13 @@ async function handleSubmissionDetected(
     const updatedHistory = [newEntry, ...syncHistory].slice(0, 100);
     await setStorageItem('syncHistory', updatedHistory);
 
-    if (typeof chrome !== 'undefined' && chrome?.notifications?.create) {
-      chrome.notifications.create(`codesync_commit_${submission.submissionId}`, {
-        type: 'basic',
-        iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
-        title: 'CodeSync: Solution Synchronized!',
-        message: `Committed ${submission.questionFrontendId}. ${submission.questionTitle} (${submission.lang}) to ${selectedRepo.fullName}`,
-        priority: 1,
-      });
-    }
+    dispatchNotification(
+      `codesync_commit_${submission.submissionId}`,
+      'CodeSync: Solution Synchronized!',
+      `Committed ${submission.questionFrontendId}. ${submission.questionTitle} (${submission.lang}) to ${selectedRepo.fullName}`,
+      1,
+      preferences,
+    );
 
     return { status: 'SUCCESS', result };
   }
@@ -112,6 +139,7 @@ async function handleSubmissionDetected(
   const failedEntry: SyncHistoryEntry = {
     id: `sync_fail_${Date.now()}_${submission.submissionId}`,
     submissionId: submission.submissionId,
+    questionId: submission.questionId,
     questionFrontendId: submission.questionFrontendId,
     questionTitle: submission.questionTitle,
     questionSlug: submission.questionSlug,
@@ -123,42 +151,163 @@ async function handleSubmissionDetected(
     readmeFilePath: result.readmePath,
     status: 'FAILED',
     timestamp: Date.now(),
+    runtimeMs: submission.stats?.runtimeMs,
+    runtimeDisplay: submission.stats?.runtimeDisplay,
+    memoryBytes: submission.stats?.memoryBytes,
+    memoryDisplay: submission.stats?.memoryDisplay,
     error: result.error,
+    code: submission.code,
   };
 
   const updatedHistory = [failedEntry, ...syncHistory].slice(0, 100);
   await setStorageItem('syncHistory', updatedHistory);
 
-  if (typeof chrome !== 'undefined' && chrome?.notifications?.create) {
-    chrome.notifications.create(`codesync_err_${submission.submissionId}`, {
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
-      title: 'CodeSync: Sync Failed',
-      message: result.error || 'Failed to commit submission to GitHub.',
-      priority: 2,
-    });
-  }
+  dispatchNotification(
+    `codesync_err_${submission.submissionId}`,
+    'CodeSync: Sync Failed',
+    result.error || 'Failed to commit submission to GitHub.',
+    2,
+    preferences,
+  );
 
   return { status: 'FAILED', error: result.error };
 }
 
-// Runtime message listener for submission events from content scripts
-chrome.runtime.onMessage.addListener(
-  (
-    message: { type?: string; payload?: unknown },
-    _sender: chrome.runtime.MessageSender,
-    sendResponse: (response: unknown) => void,
-  ) => {
-    if (message?.type === 'CODESYNC_SUBMISSION_DETECTED') {
-      const submission = message.payload as SubmissionData;
-      handleSubmissionDetected(submission)
-        .then((res) => sendResponse(res))
-        .catch((err) => {
-          console.error('[CodeSync] Error processing submission:', err);
-          sendResponse({ status: 'ERROR', error: String(err) });
-        });
-      return true; // Keep message port open for async response
-    }
-    return false;
-  },
-);
+async function handleRetrySync(
+  entryId: string,
+): Promise<{ status: string; result?: SyncResult; error?: string }> {
+  const auth = await getStorageItem('auth');
+  const selectedRepo = await getStorageItem('selectedRepo');
+  const preferences = await getStorageItem('preferences');
+  const syncHistory = (await getStorageItem('syncHistory')) || [];
+
+  const targetIndex = syncHistory.findIndex((item) => item.id === entryId);
+  if (targetIndex === -1) {
+    return { status: 'FAILED', error: 'History entry not found.' };
+  }
+
+  const entry = syncHistory[targetIndex];
+  if (!auth?.isConnected || !auth.token) {
+    return { status: 'FAILED', error: 'GitHub account is not connected.' };
+  }
+
+  if (!selectedRepo) {
+    return { status: 'FAILED', error: 'No target repository selected.' };
+  }
+
+  if (!entry.code) {
+    return {
+      status: 'FAILED',
+      error: 'Submission code was not cached for this entry. Please re-submit on LeetCode.',
+    };
+  }
+
+  const submission: SubmissionData = {
+    submissionId: entry.submissionId,
+    questionId: entry.questionId || entry.questionFrontendId,
+    questionFrontendId: entry.questionFrontendId,
+    questionTitle: entry.questionTitle,
+    questionSlug: entry.questionSlug,
+    status: 'Accepted',
+    lang: entry.lang,
+    code: entry.code,
+    timestamp: entry.timestamp,
+    stats: {
+      runtimeMs: entry.runtimeMs,
+      runtimeDisplay: entry.runtimeDisplay,
+      memoryBytes: entry.memoryBytes,
+      memoryDisplay: entry.memoryDisplay,
+    },
+  };
+
+  const problem = await fetchProblemMetadata(submission.questionSlug);
+  const result = await syncSubmissionToGitHub({
+    submission,
+    problem,
+    token: auth.token,
+    repo: selectedRepo,
+    preferences,
+    syncHistory,
+  });
+
+  if (result.status === 'SUCCESS') {
+    const updatedEntry: SyncHistoryEntry = {
+      ...entry,
+      repo: selectedRepo.fullName,
+      branch: selectedRepo.targetBranch || selectedRepo.defaultBranch || 'main',
+      folderPath: result.folderPath,
+      solutionFilePath: result.solutionPath,
+      readmeFilePath: result.readmePath,
+      commitSha: result.commitSha,
+      commitUrl: result.commitUrl,
+      status: 'SUCCESS',
+      timestamp: Date.now(),
+      error: undefined,
+      code: undefined, // Clear cached code after successful sync
+    };
+
+    const nextHistory = [...syncHistory];
+    nextHistory[targetIndex] = updatedEntry;
+    await setStorageItem('syncHistory', nextHistory);
+
+    dispatchNotification(
+      `codesync_retry_${entry.submissionId}`,
+      'CodeSync: Retry Successful!',
+      `Committed ${entry.questionFrontendId}. ${entry.questionTitle} to ${selectedRepo.fullName}`,
+      1,
+      preferences,
+    );
+
+    return { status: 'SUCCESS', result };
+  }
+
+  const updatedFailedEntry: SyncHistoryEntry = {
+    ...entry,
+    timestamp: Date.now(),
+    error: result.error || 'Retry failed.',
+  };
+  const nextHistory = [...syncHistory];
+  nextHistory[targetIndex] = updatedFailedEntry;
+  await setStorageItem('syncHistory', nextHistory);
+
+  return { status: 'FAILED', error: result.error };
+}
+
+// Runtime message listener for submission events from content scripts & settings UI
+if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
+  chrome.runtime.onMessage.addListener(
+    (
+      message: { type?: string; payload?: unknown },
+      _sender: chrome.runtime.MessageSender,
+      sendResponse: (response: unknown) => void,
+    ) => {
+      if (message?.type === 'CODESYNC_SUBMISSION_DETECTED') {
+        const submission = message.payload as SubmissionData;
+        handleSubmissionDetected(submission)
+          .then((res) => sendResponse(res))
+          .catch((err) => {
+            console.error('[CodeSync] Error processing submission:', err);
+            sendResponse({ status: 'ERROR', error: String(err) });
+          });
+        return true; // Keep message port open for async response
+      }
+
+      if (message?.type === 'CODESYNC_RETRY_SYNC') {
+        const { entryId } = (message.payload as { entryId?: string }) || {};
+        if (!entryId) {
+          sendResponse({ status: 'FAILED', error: 'Missing entryId' });
+          return false;
+        }
+        handleRetrySync(entryId)
+          .then((res) => sendResponse(res))
+          .catch((err) => {
+            console.error('[CodeSync] Error retrying sync:', err);
+            sendResponse({ status: 'FAILED', error: String(err) });
+          });
+        return true;
+      }
+
+      return false;
+    },
+  );
+}

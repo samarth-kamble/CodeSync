@@ -21,8 +21,25 @@ export default function SettingsApp() {
     await setSyncHistory([]);
   };
 
-  const handleRetrySync = (entry: SyncHistoryEntry) => {
-    alert(`Retry requested for ${entry.questionTitle}. Sync engine will be activated in Phase 7.`);
+  const handleRetrySync = async (entry: SyncHistoryEntry): Promise<{ status: string; error?: string }> => {
+    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { type: 'CODESYNC_RETRY_SYNC', payload: { entryId: entry.id } },
+          (response: { status?: string; error?: string } | undefined) => {
+            if (chrome.runtime.lastError) {
+              resolve({ status: 'FAILED', error: chrome.runtime.lastError.message });
+            } else {
+              resolve({
+                status: response?.status || 'FAILED',
+                error: response?.error,
+              });
+            }
+          },
+        );
+      });
+    }
+    return { status: 'FAILED', error: 'Extension runtime unavailable.' };
   };
 
   const handleResetAllData = async () => {

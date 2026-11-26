@@ -53,6 +53,22 @@ export function RecentSubmissionsList({ history, onOpenSettings }: RecentSubmiss
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
                   <span className="font-mono text-slate-400">{item.lang}</span>
+                  {item.runtimeDisplay && (
+                    <>
+                      <span>•</span>
+                      <span className="text-emerald-400/90 font-mono text-[10px]">
+                        {item.runtimeDisplay}
+                      </span>
+                    </>
+                  )}
+                  {item.memoryDisplay && (
+                    <>
+                      <span>•</span>
+                      <span className="text-sky-400/90 font-mono text-[10px]">
+                        {item.memoryDisplay}
+                      </span>
+                    </>
+                  )}
                   <span>•</span>
                   <span>{new Date(item.timestamp).toLocaleDateString()}</span>
                 </div>

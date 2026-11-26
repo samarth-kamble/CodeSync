@@ -7,6 +7,7 @@ export interface UserPreferences {
   overwritePolicy: OverwritePolicy;
   commitMessageFormat: string;
   folderNamingFormat: string;
+  enableNotifications?: boolean;
 }
 
 export interface SelectedRepository {
@@ -31,6 +32,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   overwritePolicy: 'always',
   commitMessageFormat: 'feat(leetcode): solve {number} {title} | {lang} | {runtime}, {memory}',
   folderNamingFormat: '{zero-padded-id}-{slug}',
+  enableNotifications: true,
 };
 
 export const DEFAULT_AUTH_STATE: AuthState = {

@@ -51,6 +51,19 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
             />
           </div>
 
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h4 className="text-xs font-medium text-slate-200">Desktop Notifications</h4>
+              <p className="text-[11px] text-slate-400">
+                Show system notifications when a submission is synced or fails to commit.
+              </p>
+            </div>
+            <Switch
+              checked={prefs.enableNotifications !== false}
+              onCheckedChange={(checked) => setPrefs({ ...prefs, enableNotifications: checked })}
+            />
+          </div>
+
           <div className="space-y-2">
             <h4 className="text-xs font-medium text-slate-200">Resubmission Update Policy</h4>
             <p className="text-[11px] text-slate-400">

@@ -34,6 +34,7 @@ export interface SyncCommitPayload {
 export interface SyncHistoryEntry {
   id: string;
   submissionId: string;
+  questionId?: string;
   questionFrontendId: string;
   questionTitle: string;
   questionSlug: string;
@@ -52,5 +53,7 @@ export interface SyncHistoryEntry {
   memoryBytes?: number;
   memoryDisplay?: string;
   error?: string;
+  /** Cached code only retained on FAILED entries to allow one-click retry */
+  code?: string;
 }
 
