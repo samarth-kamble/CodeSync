@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm --recursive run build",
+    "test": "pnpm --recursive --if-present run test",
     "typecheck": "pnpm --recursive exec tsc --noEmit",
     "format": "prettier --write ."
   },

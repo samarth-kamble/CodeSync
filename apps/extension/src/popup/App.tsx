@@ -6,8 +6,9 @@ import { RepoStatusCard } from './components/RepoStatusCard';
 import { StatsCard } from './components/StatsCard';
 import { RecentSubmissionsList } from './components/RecentSubmissionsList';
 import { initiateGitHubOAuth, disconnectGitHubAccount } from '../github/auth';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
-export default function App() {
+function PopupContent() {
   const [auth] = useStorage('auth');
   const [selectedRepo] = useStorage('selectedRepo');
   const [preferences, setPreferences] = useStorage('preferences');
@@ -115,5 +116,13 @@ export default function App() {
         </button>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary fallbackTitle="CodeSync Popup Error">
+      <PopupContent />
+    </ErrorBoundary>
   );
 }

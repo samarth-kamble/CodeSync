@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "CodeSync - LeetCode to GitHub",
   "version": "0.1.0",
+  "minimum_chrome_version": "114",
   "description": "Automatically synchronize accepted LeetCode coding solutions to your GitHub repository.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -36,8 +37,7 @@
   "permissions": [
     "storage",
     "notifications",
-    "identity",
-    "activeTab"
+    "identity"
   ],
   "host_permissions": [
     "https://leetcode.com/*",

@@ -8,8 +8,9 @@ import { AboutTab } from './tabs/AboutTab';
 import { GithubIcon } from '../components/icons/GithubIcon';
 import { Code2, Sliders, History, Info } from 'lucide-react';
 import type { SyncHistoryEntry } from '@leetsync/shared';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
-export default function SettingsApp() {
+function SettingsContent() {
   const [auth, setAuth] = useStorage('auth');
   const [selectedRepo, setSelectedRepo] = useStorage('selectedRepo');
   const [preferences, setPreferences] = useStorage('preferences');
@@ -134,5 +135,13 @@ export default function SettingsApp() {
         </Tabs>
       </main>
     </div>
+  );
+}
+
+export default function SettingsApp() {
+  return (
+    <ErrorBoundary fallbackTitle="CodeSync Settings Error">
+      <SettingsContent />
+    </ErrorBoundary>
   );
 }

@@ -8,3 +8,4 @@ dist
 .crx
 .pnpm-store
 *.tsbuildinfo
+*.zip
