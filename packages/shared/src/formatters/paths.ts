@@ -1,6 +1,8 @@
 import { getLanguageDefinition } from '../constants/languages.js';
 import type { ProblemDifficulty, TopicTag } from '../types/problem.js';
-import type { FolderOrganization } from '../types/settings.js';
+import type { FolderOrganization, SolutionNamingStyle } from '../types/settings.js';
+
+export type { SolutionNamingStyle };
 
 const SQL_LANG_SLUGS = new Set(['mysql', 'mssql', 'oraclesql', 'postgresql', 'sql']);
 
@@ -67,8 +69,6 @@ export function padProblemNumber(frontendQuestionId: string | number, padLength:
   }
   return str.padStart(padLength, '0');
 }
-
-export type SolutionNamingStyle = 'slug' | 'solution' | 'numbered';
 
 export interface FolderOrganizationOptions {
   organization?: FolderOrganization;

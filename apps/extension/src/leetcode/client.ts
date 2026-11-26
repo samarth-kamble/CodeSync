@@ -105,3 +105,88 @@ export async function fetchProblemMetadata(
   }
 }
 
+const SUBMISSION_DETAILS_QUERY = `
+query submissionDetails($submissionId: Int!) {
+  submissionDetails(submissionId: $submissionId) {
+    statusCode
+    code
+    lang {
+      name
+    }
+    runtimeDisplay
+    runtimePercentile
+    memoryDisplay
+    memoryPercentile
+  }
+}
+`;
+
+function getCsrfToken(): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : undefined;
+}
+
+export async function fetchSubmissionBenchmarks(submissionId: string): Promise<{
+  statusCode?: number;
+  code?: string;
+  langSlug?: string;
+  runtimeDisplay?: string;
+  runtimePercentile?: number;
+  memoryDisplay?: string;
+  memoryPercentile?: number;
+} | null> {
+  const numericId = parseInt(submissionId, 10);
+  if (isNaN(numericId)) return null;
+
+  try {
+    const csrfToken = getCsrfToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (csrfToken) {
+      headers['x-csrftoken'] = csrfToken;
+    }
+
+    const response = await fetch(LEETCODE_GRAPHQL_ENDPOINT, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({
+        query: SUBMISSION_DETAILS_QUERY,
+        variables: { submissionId: numericId },
+      }),
+    });
+
+    if (!response.ok) return null;
+    const json = await response.json() as {
+      data?: {
+        submissionDetails?: {
+          statusCode?: number;
+          code?: string;
+          lang?: { name?: string };
+          runtimeDisplay?: string;
+          runtimePercentile?: number;
+          memoryDisplay?: string;
+          memoryPercentile?: number;
+        } | null;
+      };
+    };
+
+    const details = json.data?.submissionDetails;
+    if (!details) return null;
+
+    return {
+      statusCode: typeof details.statusCode === 'number' ? details.statusCode : undefined,
+      code: details.code || undefined,
+      langSlug: details.lang?.name || undefined,
+      runtimeDisplay: details.runtimeDisplay || undefined,
+      runtimePercentile: typeof details.runtimePercentile === 'number' ? details.runtimePercentile : undefined,
+      memoryDisplay: details.memoryDisplay || undefined,
+      memoryPercentile: typeof details.memoryPercentile === 'number' ? details.memoryPercentile : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+

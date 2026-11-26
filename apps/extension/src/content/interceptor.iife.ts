@@ -51,12 +51,23 @@ function handleSubmissionRequest(url: string, requestBody: string) {
 function handleSubmissionResponse(responseText: string) {
   try {
     const json = JSON.parse(responseText);
-    if (json.submission_id && lastSubmittedRequest) {
+    if (json.submission_id) {
       const submissionId = String(json.submission_id);
-      pendingBySubmissionId.set(submissionId, {
-        ...lastSubmittedRequest,
-        submissionId,
-      });
+      if (lastSubmittedRequest) {
+        pendingBySubmissionId.set(submissionId, {
+          ...lastSubmittedRequest,
+          submissionId,
+        });
+      }
+      if (/^\d+$/.test(submissionId)) {
+        notifyContentScript('SUBMISSION_STARTED', {
+          submissionId,
+          questionId: lastSubmittedRequest?.questionId || '',
+          lang: lastSubmittedRequest?.lang || '',
+          code: lastSubmittedRequest?.code || '',
+          slug: lastSubmittedRequest?.slug,
+        });
+      }
       console.log(`[CodeSync] Associated submission ID: ${submissionId}`);
     }
   } catch (err) {
@@ -70,6 +81,11 @@ function handleCheckResponse(url: string, responseText: string) {
     if (!checkMatch) return;
 
     const submissionId = checkMatch[1];
+    // Strictly ignore LeetCode "Run" test executions (e.g. runcode_1732...)
+    if (!/^\d+$/.test(submissionId)) {
+      return;
+    }
+
     const data = JSON.parse(responseText);
 
     // Only process terminal states
@@ -121,15 +137,23 @@ function handleCheckResponse(url: string, responseText: string) {
 // 1. Hook window.fetch
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
+  const req = args[0];
+  const init = args[1];
+  const url = typeof req === 'string' ? req : (req as Request)?.url || '';
+
+  if (url.includes('/submit/')) {
+    if (init && init.body && typeof init.body === 'string') {
+      handleSubmissionRequest(url, init.body);
+    } else if (req && typeof req !== 'string' && typeof (req as Request).clone === 'function') {
+      (req as Request).clone().text().then((text) => {
+        if (text) handleSubmissionRequest(url, text);
+      }).catch(() => {});
+    }
+  }
+
   const response = await originalFetch.apply(this, args);
   try {
-    const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request)?.url || '';
-
     if (url.includes('/submit/')) {
-      const init = args[1];
-      if (init && init.body && typeof init.body === 'string') {
-        handleSubmissionRequest(url, init.body);
-      }
       const clone = response.clone();
       clone.text().then(handleSubmissionResponse).catch(() => {});
     } else if (url.includes('/check/')) {

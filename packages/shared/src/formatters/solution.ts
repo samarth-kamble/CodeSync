@@ -16,7 +16,7 @@ export function getCommentSyntax(langSlug: string): CommentSyntax {
 }
 
 /**
- * Generates language-specific comment header.
+ * Generates a clean, aligned, language-specific comment header.
  */
 export function generateSolutionHeader(
   submission: SubmissionData,
@@ -32,23 +32,35 @@ export function generateSolutionHeader(
   const problemUrl = `https://leetcode.com/problems/${slug}/`;
   const dateStr = new Date(submission.timestamp || Date.now()).toISOString().split('T')[0];
 
-  const runtime = submission.stats?.runtimeDisplay || (submission.stats?.runtimeMs !== undefined ? `${submission.stats.runtimeMs} ms` : null);
-  const runtimePercentile = submission.stats?.runtimePercentile !== undefined ? ` (beats ${submission.stats.runtimePercentile.toFixed(2)}%)` : '';
+  const runtime =
+    submission.stats?.runtimeDisplay ||
+    (submission.stats?.runtimeMs !== undefined ? `${submission.stats.runtimeMs} ms` : null);
+  const runtimePercentile =
+    submission.stats?.runtimePercentile !== undefined
+      ? ` (Beats ${submission.stats.runtimePercentile.toFixed(2)}%)`
+      : '';
   const runtimeStr = runtime ? `${runtime}${runtimePercentile}` : 'N/A';
 
-  const memory = submission.stats?.memoryDisplay || (submission.stats?.memoryBytes !== undefined ? `${(submission.stats.memoryBytes / 1024 / 1024).toFixed(1)} MB` : null);
-  const memoryPercentile = submission.stats?.memoryPercentile !== undefined ? ` (beats ${submission.stats.memoryPercentile.toFixed(2)}%)` : '';
+  const memory =
+    submission.stats?.memoryDisplay ||
+    (submission.stats?.memoryBytes !== undefined
+      ? `${(submission.stats.memoryBytes / 1024 / 1024).toFixed(1)} MB`
+      : null);
+  const memoryPercentile =
+    submission.stats?.memoryPercentile !== undefined
+      ? ` (Beats ${submission.stats.memoryPercentile.toFixed(2)}%)`
+      : '';
   const memoryStr = memory ? `${memory}${memoryPercentile}` : 'N/A';
 
   const lines = [
-    `Problem: ${id}. ${title}`,
-    `Difficulty: ${difficulty}`,
-    `Language: ${langDef.name}`,
-    `Runtime: ${runtimeStr}`,
-    `Memory: ${memoryStr}`,
-    `Submission Date: ${dateStr}`,
-    `URL: ${problemUrl}`,
-    `Synced with CodeSync`,
+    `Problem  : ${id}. ${title}`,
+    `Link     : ${problemUrl}`,
+    `Diff     : ${difficulty}`,
+    `Language : ${langDef.name}`,
+    `Runtime  : ${runtimeStr}`,
+    `Memory   : ${memoryStr}`,
+    `Date     : ${dateStr}`,
+    `Synced   : CodeSync`,
   ];
 
   if (syntax === 'hash') {
@@ -76,13 +88,12 @@ export function formatSolutionCode(
 
   // Strip previous CodeSync header if present to prevent header duplication on re-sync
   const strippedCode = cleanCode
-    .replace(/^\/\*\*[\s\S]*?Synced with CodeSync[\s\S]*?\*\/\s*/i, '')
-    .replace(/^(?:#[^\n]*\n)*?# Synced with CodeSync\s*/i, '')
-    .replace(/^(?:--[^\n]*\n)*?-- Synced with CodeSync\s*/i, '')
+    .replace(/^\/\*\*[\s\S]*?(?:Synced with CodeSync|Synced\s*:\s*CodeSync)[\s\S]*?\*\/\s*/i, '')
+    .replace(/^(?:#[^\n]*\n)*?# (?:Synced with CodeSync|Synced\s*:\s*CodeSync)\s*/i, '')
+    .replace(/^(?:--[^\n]*\n)*?-- (?:Synced with CodeSync|Synced\s*:\s*CodeSync)\s*/i, '')
     .trim();
 
   const header = generateSolutionHeader(submission, problem);
 
   return `${header}\n\n${strippedCode}\n`;
 }
-

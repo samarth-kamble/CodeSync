@@ -35,51 +35,71 @@ export function convertHtmlToMarkdown(htmlContent: string): string {
   text = text.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   text = text.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
 
-  // 2. Handle preformatted code blocks (<pre><code>...</code></pre> or <pre>...</pre>)
+  // 2. Preserve images as Markdown image syntax before stripping remaining tags
+  text = text.replace(/<img\b[^>]*src=["']([^"']+)["'][^>]*>/gi, (fullTag, src) => {
+    const altMatch = fullTag.match(/alt=["']([^"']*)["']/i);
+    const alt = altMatch ? altMatch[1] : 'Example';
+    return `\n\n![${alt}](${src})\n\n`;
+  });
+
+  // 3. Handle preformatted code blocks (<pre>...</pre>) and strip inner HTML tags
+  // so markdown asterisks like **Input:** do not appear literally inside code blocks.
+  const preBlocks: string[] = [];
   text = text.replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (_, codeInside) => {
-    // Strip inner <code> tags if present
-    let raw = codeInside.replace(/<\/?code[^>]*>/gi, '');
-    raw = decodeHtmlEntities(raw).trim();
-    return `\n\n\`\`\`\n${raw}\n\`\`\`\n\n`;
+    const stripped = codeInside.replace(/<[^>]+>/g, '');
+    const decoded = decodeHtmlEntities(stripped).trim();
+    const token = `__CODESYNC_PRE_${preBlocks.length}__`;
+    preBlocks.push(`\n\n\`\`\`text\n${decoded}\n\`\`\`\n\n`);
+    return token;
   });
 
-  // 3. Handle inline code (<code>...</code>)
-  text = text.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, code) => {
-    const cleaned = decodeHtmlEntities(code).trim();
-    return `\`${cleaned}\``;
-  });
-
-  // 4. Strong and Bold
-  text = text.replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**');
-
-  // 5. Emphasis and Italic
-  text = text.replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
-
-  // 6. Superscript and Subscript
+  // 4. Superscript and Subscript (before inline code so 10<sup>4</sup> inside <code> becomes 10^4)
   text = text.replace(/<sup\b[^>]*>([\s\S]*?)<\/sup>/gi, '^$1');
   text = text.replace(/<sub\b[^>]*>([\s\S]*?)<\/sub>/gi, '_$1');
 
-  // 7. Headings
+  // 5. Handle inline code (<code>...</code>)
+  text = text.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_, code) => {
+    const cleaned = decodeHtmlEntities(code.replace(/<[^>]+>/g, '')).trim();
+    return cleaned ? `\`${cleaned}\`` : '';
+  });
+
+  // 6. Strong and Bold
+  text = text.replace(/<(?:strong|b)\b[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**');
+
+  // 7. Emphasis and Italic
+  text = text.replace(/<(?:em|i)\b[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
+
+  // 8. Headings
   text = text.replace(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi, '\n\n# $1\n\n');
   text = text.replace(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi, '\n\n## $1\n\n');
   text = text.replace(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi, '\n\n### $1\n\n');
   text = text.replace(/<h4\b[^>]*>([\s\S]*?)<\/h4>/gi, '\n\n#### $1\n\n');
 
-  // 8. List items
+  // 9. List items
   text = text.replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, '\n- $1');
   text = text.replace(/<\/?(?:ul|ol)\b[^>]*>/gi, '\n');
 
-  // 9. Paragraphs and breaks
+  // 10. Paragraphs and breaks
   text = text.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, '\n\n$1\n\n');
   text = text.replace(/<br\s*\/?>/gi, '\n');
 
-  // 10. Strip any remaining HTML tags
+  // 11. Strip any remaining HTML tags
   text = text.replace(/<[^>]+>/g, '');
 
-  // 11. Decode remaining HTML entities
+  // 12. Decode remaining HTML entities
   text = decodeHtmlEntities(text);
 
-  // 12. Normalize consecutive newlines and extra spaces
+  // 13. Restore <pre> code blocks cleanly
+  preBlocks.forEach((block, idx) => {
+    text = text.replace(`__CODESYNC_PRE_${idx}__`, block);
+  });
+
+  // 14. Format Example / Constraints headers cleanly
+  text = text
+    .replace(/\*\*(Example \d+:)\*\*/g, '\n### $1')
+    .replace(/\*\*(Constraints:)\*\*/g, '\n### $1');
+
+  // 15. Normalize consecutive newlines and trailing whitespace
   text = text
     .split('\n')
     .map((line) => line.trimEnd())

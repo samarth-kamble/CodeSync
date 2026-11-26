@@ -36,14 +36,14 @@ export function formatCommitMessage(
   const runtimePercentile =
     submission.stats?.runtimePercentile !== undefined
       ? `${submission.stats.runtimePercentile.toFixed(2)}%`
-      : 'N/A';
+      : '';
 
   const memoryPercentile =
     submission.stats?.memoryPercentile !== undefined
       ? `${submission.stats.memoryPercentile.toFixed(2)}%`
-      : 'N/A';
+      : '';
 
-  return pattern
+  let formatted = pattern
     .replace('{zero-padded-id}', paddedNumber)
     .replace('{number}', rawNumber)
     .replace('{id}', rawNumber)
@@ -55,7 +55,11 @@ export function formatCommitMessage(
     .replace('{runtime}', runtime)
     .replace('{memory}', memory)
     .replace('{runtimePercentile}', runtimePercentile)
-    .replace('{memoryPercentile}', memoryPercentile)
-    .trim();
+    .replace('{memoryPercentile}', memoryPercentile);
+
+  // Clean up empty parentheses if percentiles were not available
+  formatted = formatted.replace(/\s*\(\s*\)/g, '').replace(/\s{2,}/g, ' ');
+
+  return formatted.trim();
 }
 

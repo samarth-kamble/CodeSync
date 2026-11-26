@@ -75,6 +75,27 @@ pnpm --filter @leetsync/extension package:zip
 
 ---
 
+## Deploying the OAuth Backend (`apps/web`) to Production
+
+To allow users to sign in with GitHub without running a local server:
+
+1. **Deploy `apps/web` to Vercel**:
+   - Set **Root Directory** to `apps/web`.
+   - Set **Build Command** to `pnpm --filter web build` (or run from monorepo root).
+   - Add Environment Variables in Vercel:
+     - `GITHUB_CLIENT_ID`
+     - `GITHUB_CLIENT_SECRET`
+     - `BETTER_AUTH_SECRET`
+     - `BETTER_AUTH_URL` = `https://<your-vercel-domain>`
+2. **Update GitHub OAuth App**:
+   - In GitHub Developer Settings $\rightarrow$ OAuth Apps, set **Authorization callback URL** to:
+     `https://<your-vercel-domain>/api/auth/callback/github`
+3. **Build Extension for Production**:
+   - Update `apps/extension/.env.local` with `VITE_BACKEND_URL=https://<your-vercel-domain>`.
+   - Run `pnpm --filter @leetsync/extension package:zip`.
+
+---
+
 ## Privacy
 
 CodeSync stores all GitHub access tokens, repository selections, and sync logs strictly on your local device via `chrome.storage.local`. See [PRIVACY.md](./PRIVACY.md) for full details.

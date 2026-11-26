@@ -8,6 +8,7 @@ import {
   type UserPreferences,
   type OverwritePolicy,
   type FolderOrganization,
+  type SolutionNamingStyle,
   DEFAULT_PREFERENCES,
   formatCommitMessage,
 } from '@leetsync/shared';
@@ -63,6 +64,19 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
             <Switch
               checked={prefs.enableNotifications !== false}
               onCheckedChange={(checked) => setPrefs({ ...prefs, enableNotifications: checked })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
+              <h4 className="text-xs font-medium text-slate-200">Update Root README Progress Table</h4>
+              <p className="text-[11px] text-slate-400">
+                Maintain a root README.md with solved counts and a problem index table.
+              </p>
+            </div>
+            <Switch
+              checked={prefs.updateRootReadme !== false}
+              onCheckedChange={(checked) => setPrefs({ ...prefs, updateRootReadme: checked })}
             />
           </div>
 
@@ -177,6 +191,51 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
                       <span className="font-medium text-slate-200 block">{mode.title}</span>
                       <code className="text-[10px] text-orange-400 block truncate mt-0.5">
                         {mode.example}
+                      </code>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
+              Solution Filename Style
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              {[
+                { id: 'slug', title: 'Problem Slug', example: 'binary-search.py' },
+                { id: 'solution', title: 'Standard', example: 'solution.py' },
+                { id: 'numbered', title: 'Numbered', example: '0704-binary-search.py' },
+              ].map((styleOpt) => {
+                const current = prefs.solutionNamingStyle || 'slug';
+                return (
+                  <label
+                    key={styleOpt.id}
+                    className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                      current === styleOpt.id
+                        ? 'border-orange-500/50 bg-orange-500/5 text-slate-100'
+                        : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="solutionNamingStyle"
+                      value={styleOpt.id}
+                      checked={current === styleOpt.id}
+                      onChange={() =>
+                        setPrefs({
+                          ...prefs,
+                          solutionNamingStyle: styleOpt.id as SolutionNamingStyle,
+                        })
+                      }
+                      className="mt-0.5 accent-orange-500"
+                    />
+                    <div className="min-w-0">
+                      <span className="font-medium text-slate-200 block">{styleOpt.title}</span>
+                      <code className="text-[10px] text-orange-400 block truncate mt-0.5">
+                        {styleOpt.example}
                       </code>
                     </div>
                   </label>

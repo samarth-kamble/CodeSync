@@ -136,7 +136,7 @@ describe('HTML to Markdown Formatter', () => {
     const md = convertHtmlToMarkdown(html);
     expect(md).toContain('Given an array of integers `nums` and an integer `target`');
     expect(md).toContain('**exactly one solution**');
-    expect(md).toContain('```\n**Input:** nums = [2,7,11,15], target = 9');
+    expect(md).toContain('```text\nInput: nums = [2,7,11,15], target = 9');
     expect(md).toContain('`2 <= nums.length <= 10^4`');
   });
 });
@@ -252,20 +252,20 @@ describe('Solution Code Formatter', () => {
 
   it('generates hash comments for Python code', () => {
     const formatted = formatSolutionCode(mockPythonSubmission.code, mockPythonSubmission, mockProblem);
-    expect(formatted).toContain('# Problem: 1. Two Sum');
-    expect(formatted).toContain('# Difficulty: Easy');
-    expect(formatted).toContain('# Language: Python 3');
-    expect(formatted).toContain('# Runtime: 50 ms (beats 85.50%)');
-    expect(formatted).toContain('# Synced with CodeSync');
+    expect(formatted).toContain('# Problem  : 1. Two Sum');
+    expect(formatted).toContain('# Diff     : Easy');
+    expect(formatted).toContain('# Language : Python 3');
+    expect(formatted).toContain('# Runtime  : 50 ms (Beats 85.50%)');
+    expect(formatted).toContain('# Synced   : CodeSync');
     expect(formatted).toContain('class Solution:');
   });
 
   it('generates block comments for C++ code', () => {
     const formatted = formatSolutionCode(mockCppSubmission.code, mockCppSubmission, mockProblem);
     expect(formatted).toContain('/**');
-    expect(formatted).toContain(' * Problem: 1. Two Sum');
-    expect(formatted).toContain(' * Language: C++');
-    expect(formatted).toContain(' * Synced with CodeSync');
+    expect(formatted).toContain(' * Problem  : 1. Two Sum');
+    expect(formatted).toContain(' * Language : C++');
+    expect(formatted).toContain(' * Synced   : CodeSync');
     expect(formatted).toContain(' */');
     expect(formatted).toContain('class Solution {');
   });
@@ -274,7 +274,7 @@ describe('Solution Code Formatter', () => {
     const formattedOnce = formatSolutionCode(mockPythonSubmission.code, mockPythonSubmission, mockProblem);
     const formattedTwice = formatSolutionCode(formattedOnce, mockPythonSubmission, mockProblem);
 
-    const matches = formattedTwice.match(/Synced with CodeSync/g);
+    const matches = formattedTwice.match(/Synced\s*:\s*CodeSync/g);
     expect(matches?.length).toBe(1);
   });
 });

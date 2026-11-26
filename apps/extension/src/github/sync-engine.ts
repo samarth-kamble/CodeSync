@@ -8,6 +8,7 @@ import {
   getSolutionFilename,
   formatSolutionCode,
   generateProblemReadme,
+  generateRootReadme,
   formatCommitMessage,
 } from '@leetsync/shared';
 
@@ -213,8 +214,18 @@ export async function updateBranchRef(
   }
 }
 
+// In-memory sequential queue to prevent concurrent Git ref updates (422 conflicts)
+let commitQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueCommit<T>(task: () => Promise<T>): Promise<T> {
+  const next = commitQueue.then(task, task);
+  commitQueue = next.catch(() => {});
+  return next;
+}
+
 /**
  * Executes a single atomic Git commit containing multiple files via GitHub Git Data API.
+ * Serialized through an internal queue and retried on 409/422 non-fast-forward conflicts.
  */
 export async function executeAtomicCommit(
   token: string,
@@ -224,41 +235,52 @@ export async function executeAtomicCommit(
   commitMessage: string,
   files: TreeFileItem[],
 ): Promise<{ commitSha: string; commitUrl: string }> {
-  // 1. Get branch head commit SHA
-  const branchHead = await getBranchRef(token, owner, repo, branch);
-  const isNewBranch = branchHead === null;
-  const parentCommitSha = branchHead ? branchHead.commitSha : null;
-
-  // 2. Get base tree SHA if parent commit exists
-  let baseTreeSha: string | null = null;
-  if (parentCommitSha) {
-    baseTreeSha = await getCommitTreeSha(token, owner, repo, parentCommitSha);
-  }
-
-  // 3. Create blobs in parallel for all changed files
+  // 1. Create blobs in parallel (content-addressed, safe outside queue)
   const blobPromises = files.map(async (file) => {
     const blobSha = await createBlob(token, owner, repo, file.content);
     return { path: file.path, blobSha };
   });
   const treeItems = await Promise.all(blobPromises);
 
-  // 4. Create new tree based on parent tree
-  const newTreeSha = await createTree(token, owner, repo, baseTreeSha, treeItems);
+  // 2. Serialize tree -> commit -> ref update so concurrent submissions never race
+  return enqueueCommit(async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const branchHead = await getBranchRef(token, owner, repo, branch);
+      const isNewBranch = branchHead === null;
+      const parentCommitSha = branchHead ? branchHead.commitSha : null;
 
-  // 5. Create commit
-  const newCommit = await createCommit(
-    token,
-    owner,
-    repo,
-    commitMessage,
-    newTreeSha,
-    parentCommitSha,
-  );
+      let baseTreeSha: string | null = null;
+      if (parentCommitSha) {
+        baseTreeSha = await getCommitTreeSha(token, owner, repo, parentCommitSha);
+      }
 
-  // 6. Fast-forward branch ref to new commit
-  await updateBranchRef(token, owner, repo, branch, newCommit.sha, isNewBranch);
+      const newTreeSha = await createTree(token, owner, repo, baseTreeSha, treeItems);
 
-  return { commitSha: newCommit.sha, commitUrl: newCommit.url };
+      const newCommit = await createCommit(
+        token,
+        owner,
+        repo,
+        commitMessage,
+        newTreeSha,
+        parentCommitSha,
+      );
+
+      try {
+        await updateBranchRef(token, owner, repo, branch, newCommit.sha, isNewBranch);
+        return { commitSha: newCommit.sha, commitUrl: newCommit.url };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const isRefConflict = msg.includes('422') || msg.includes('409');
+        if (attempt < 2 && isRefConflict) {
+          await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error('Failed to update branch ref after retries.');
+  });
 }
 
 /**
@@ -350,7 +372,7 @@ export async function syncSubmissionToGitHub(options: SyncOptions): Promise<Sync
   const solutionFileName = getSolutionFilename(
     submission.questionSlug,
     submission.lang,
-    'slug',
+    preferences.solutionNamingStyle || 'slug',
     submission.questionFrontendId,
   );
 
@@ -393,6 +415,32 @@ export async function syncSubmissionToGitHub(options: SyncOptions): Promise<Sync
     { path: solutionPath, content: formattedCode },
     { path: readmePath, content: readmeContent },
   ];
+
+  if (preferences.updateRootReadme !== false) {
+    const projectedEntry: SyncHistoryEntry = {
+      id: `projected_${submission.submissionId}`,
+      submissionId: submission.submissionId,
+      questionId: submission.questionId,
+      questionFrontendId: submission.questionFrontendId,
+      questionTitle: problem?.title || submission.questionTitle,
+      questionSlug: submission.questionSlug,
+      difficulty: problem?.difficulty,
+      lang: submission.lang,
+      repo: repo.fullName,
+      branch: repo.targetBranch || repo.defaultBranch || 'main',
+      folderPath: folderName,
+      solutionFilePath: solutionPath,
+      readmeFilePath: readmePath,
+      status: 'SUCCESS',
+      timestamp: submission.timestamp || Date.now(),
+      runtimeMs: submission.stats?.runtimeMs,
+      runtimeDisplay: submission.stats?.runtimeDisplay,
+      memoryBytes: submission.stats?.memoryBytes,
+      memoryDisplay: submission.stats?.memoryDisplay,
+    };
+    const rootReadme = generateRootReadme([projectedEntry, ...syncHistory], repo.fullName);
+    filesToCommit.push({ path: 'README.md', content: rootReadme });
+  }
 
   // 3. Execute atomic commit via Git Data API
   const targetBranch = repo.targetBranch || repo.defaultBranch || 'main';

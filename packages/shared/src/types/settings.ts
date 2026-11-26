@@ -4,12 +4,16 @@ export type OverwritePolicy = 'always' | 'improved' | 'never';
 
 export type FolderOrganization = 'flat' | 'topic' | 'difficulty' | 'language';
 
+export type SolutionNamingStyle = 'slug' | 'solution' | 'numbered';
+
 export interface UserPreferences {
   autoSync: boolean;
   overwritePolicy: OverwritePolicy;
   commitMessageFormat: string;
   folderNamingFormat: string;
   folderOrganization?: FolderOrganization;
+  solutionNamingStyle?: SolutionNamingStyle;
+  updateRootReadme?: boolean;
   enableNotifications?: boolean;
 }
 
@@ -36,6 +40,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   commitMessageFormat: 'Time: {runtime} ({runtimePercentile}) | Memory: {memory} ({memoryPercentile}) - CodeSync',
   folderNamingFormat: '{zero-padded-id}-{slug}',
   folderOrganization: 'flat',
+  solutionNamingStyle: 'slug',
+  updateRootReadme: true,
   enableNotifications: true,
 };
 

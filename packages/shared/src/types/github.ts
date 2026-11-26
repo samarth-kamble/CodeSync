@@ -1,3 +1,5 @@
+import type { ProblemDifficulty } from './problem.js';
+
 export interface GitHubUser {
   login: string;
   id: number;
@@ -38,6 +40,7 @@ export interface SyncHistoryEntry {
   questionFrontendId: string;
   questionTitle: string;
   questionSlug: string;
+  difficulty?: ProblemDifficulty;
   lang: string;
   repo: string;
   branch: string;

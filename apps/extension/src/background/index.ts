@@ -100,6 +100,7 @@ async function handleSubmissionDetected(
       questionFrontendId: submission.questionFrontendId,
       questionTitle: submission.questionTitle,
       questionSlug: submission.questionSlug,
+      difficulty: problem?.difficulty,
       lang: submission.lang,
       repo: selectedRepo.fullName,
       branch: targetBranch,
