@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchUserRepositories,
   fetchRepositoryBranches,
+  fetchRepositoryFolders,
   verifyRepositoryPushAccess,
   createGitHubRepository,
   type RawGitHubRepo,
@@ -170,6 +171,33 @@ describe('GitHub Repository Manager Logic', () => {
     );
     expect(newRepo.name).toBe('leetcode-solutions');
     expect(newRepo.isPrivate).toBe(true);
+  });
+
+  it('fetchRepositoryFolders extracts sorted tree paths and handles 404 empty repo', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        tree: [
+          { path: 'README.md', type: 'blob' },
+          { path: 'sql', type: 'tree' },
+          { path: 'arrays', type: 'tree' },
+          { path: 'arrays/0001-two-sum', type: 'tree' },
+        ],
+      }),
+    } as Response);
+
+    const folders = await fetchRepositoryFolders('tok', 'user', 'repo', 'main');
+    expect(folders).toEqual(['arrays', 'arrays/0001-two-sum', 'sql']);
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+    } as Response);
+
+    const emptyFolders = await fetchRepositoryFolders('tok', 'user', 'empty-repo', 'main');
+    expect(emptyFolders).toEqual([]);
   });
 });
 

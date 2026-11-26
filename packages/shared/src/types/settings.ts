@@ -8,6 +8,7 @@ export type SolutionNamingStyle = 'slug' | 'solution' | 'numbered';
 
 export interface UserPreferences {
   autoSync: boolean;
+  askFolderBeforeSync?: boolean;
   overwritePolicy: OverwritePolicy;
   commitMessageFormat: string;
   folderNamingFormat: string;
@@ -36,6 +37,7 @@ export interface AuthState {
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   autoSync: true,
+  askFolderBeforeSync: false,
   overwritePolicy: 'always',
   commitMessageFormat: 'Time: {runtime} ({runtimePercentile}) | Memory: {memory} ({memoryPercentile}) - CodeSync',
   folderNamingFormat: '{zero-padded-id}-{slug}',

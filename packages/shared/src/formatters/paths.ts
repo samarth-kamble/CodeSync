@@ -75,6 +75,8 @@ export interface FolderOrganizationOptions {
   langSlug?: string;
   difficulty?: ProblemDifficulty;
   topicTags?: TopicTag[];
+  /** Explicit parent folder chosen by the user in the interactive dialog ('' = root) */
+  customParentFolder?: string;
 }
 
 /**
@@ -158,6 +160,16 @@ export function getProblemFolderPath(
   }
 
   const sanitizedFolder = sanitizePathComponent(folder);
+
+  if (organizationOptions?.customParentFolder !== undefined) {
+    const cleanCustomParent = organizationOptions.customParentFolder
+      .split('/')
+      .map((seg) => sanitizePathComponent(seg))
+      .filter(Boolean)
+      .join('/');
+    return cleanCustomParent ? `${cleanCustomParent}/${sanitizedFolder}` : sanitizedFolder;
+  }
+
   const category = resolveCategorySubfolder(organizationOptions);
 
   return category ? `${category}/${sanitizedFolder}` : sanitizedFolder;

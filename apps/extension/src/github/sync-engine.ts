@@ -350,13 +350,24 @@ export interface SyncOptions {
   repo: SelectedRepository;
   preferences: UserPreferences;
   syncHistory: SyncHistoryEntry[];
+  customParentFolder?: string;
+  customCommitMessage?: string;
 }
 
 /**
  * Orchestrates formatting, policy check, and atomic commit push to GitHub.
  */
 export async function syncSubmissionToGitHub(options: SyncOptions): Promise<SyncResult> {
-  const { submission, problem, token, repo, preferences, syncHistory } = options;
+  const {
+    submission,
+    problem,
+    token,
+    repo,
+    preferences,
+    syncHistory,
+    customParentFolder,
+    customCommitMessage,
+  } = options;
 
   const folderName = getProblemFolderPath(
     submission.questionFrontendId,
@@ -367,6 +378,7 @@ export async function syncSubmissionToGitHub(options: SyncOptions): Promise<Sync
       langSlug: submission.lang,
       difficulty: problem?.difficulty,
       topicTags: problem?.topicTags,
+      customParentFolder,
     },
   );
   const solutionFileName = getSolutionFilename(
@@ -405,11 +417,9 @@ export async function syncSubmissionToGitHub(options: SyncOptions): Promise<Sync
     },
     submission,
   );
-  const commitMsg = formatCommitMessage(
-    preferences.commitMessageFormat,
-    submission,
-    problem,
-  );
+  const commitMsg =
+    (customCommitMessage && customCommitMessage.trim()) ||
+    formatCommitMessage(preferences.commitMessageFormat, submission, problem);
 
   const filesToCommit: TreeFileItem[] = [
     { path: solutionPath, content: formattedCode },

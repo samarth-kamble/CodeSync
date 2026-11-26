@@ -56,6 +56,19 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
 
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div>
+              <h4 className="text-xs font-medium text-slate-200">Ask Folder Before Sync</h4>
+              <p className="text-[11px] text-slate-400">
+                Open a folder picker dialog on Accepted submissions to choose or create a folder.
+              </p>
+            </div>
+            <Switch
+              checked={Boolean(prefs.askFolderBeforeSync)}
+              onCheckedChange={(checked) => setPrefs({ ...prefs, askFolderBeforeSync: checked })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div>
               <h4 className="text-xs font-medium text-slate-200">Desktop Notifications</h4>
               <p className="text-[11px] text-slate-400">
                 Show system notifications when a submission is synced or fails to commit.

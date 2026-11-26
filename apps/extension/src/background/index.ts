@@ -1,11 +1,18 @@
 import {
   isAcceptedSubmission,
+  formatCommitMessage,
+  padProblemNumber,
+  sanitizePathComponent,
+  getSolutionFilename,
+  resolveCategorySubfolder,
   type SubmissionData,
+  type ProblemMetadata,
   type SyncHistoryEntry,
   type UserPreferences,
 } from '@leetsync/shared';
 import { getStorageItem, setStorageItem } from '../storage/index';
 import { fetchProblemMetadata } from '../leetcode/client';
+import { fetchRepositoryFolders } from '../github/repo-manager';
 import { syncSubmissionToGitHub, type SyncResult } from '../github/sync-engine';
 
 console.log('[CodeSync] Background service worker initialized.');
@@ -43,6 +50,7 @@ function dispatchNotification(
 
 async function handleSubmissionDetected(
   submission: SubmissionData,
+  overrides?: { customParentFolder?: string; customCommitMessage?: string },
 ): Promise<{ status: string; result?: SyncResult; error?: string; message?: string }> {
   // 1. Strict Gate: Only Accepted submissions are ever processed
   if (!isAcceptedSubmission(submission)) {
@@ -87,6 +95,8 @@ async function handleSubmissionDetected(
     repo: selectedRepo,
     preferences,
     syncHistory,
+    customParentFolder: overrides?.customParentFolder,
+    customCommitMessage: overrides?.customCommitMessage,
   });
 
   // 6. Record history and dispatch notification
@@ -274,6 +284,68 @@ async function handleRetrySync(
   return { status: 'FAILED', error: result.error };
 }
 
+async function handleGetDialogContext(payload: {
+  submission: SubmissionData;
+  problem?: ProblemMetadata | null;
+}) {
+  const auth = await getStorageItem('auth');
+  const selectedRepo = await getStorageItem('selectedRepo');
+  const preferences = await getStorageItem('preferences');
+
+  if (!auth?.isConnected || !auth.token) {
+    return { ok: false, status: 'NOT_CONNECTED', message: 'GitHub account is not connected.' };
+  }
+  if (!selectedRepo) {
+    return { ok: false, status: 'NO_REPO_SELECTED', message: 'No target repository configured.' };
+  }
+
+  const targetBranch = selectedRepo.targetBranch || selectedRepo.defaultBranch || 'main';
+  const askFolderBeforeSync = Boolean(preferences.askFolderBeforeSync);
+  const folders = askFolderBeforeSync
+    ? await fetchRepositoryFolders(
+        auth.token,
+        selectedRepo.owner,
+        selectedRepo.name,
+        targetBranch,
+      )
+    : [];
+
+  const { submission, problem } = payload;
+  const padded = padProblemNumber(submission.questionFrontendId);
+  const slug = sanitizePathComponent(submission.questionSlug);
+  const problemFolderName = `${padded}-${slug}`;
+  const solutionFileName = getSolutionFilename(
+    submission.questionSlug,
+    submission.lang,
+    preferences.solutionNamingStyle || 'slug',
+    submission.questionFrontendId,
+  );
+  const defaultParentFolder = resolveCategorySubfolder({
+    organization: preferences.folderOrganization,
+    langSlug: submission.lang,
+    difficulty: problem?.difficulty,
+    topicTags: problem?.topicTags,
+  });
+  const defaultCommitMessage = formatCommitMessage(
+    preferences.commitMessageFormat,
+    submission,
+    problem,
+  );
+
+  return {
+    ok: true,
+    askFolderBeforeSync,
+    autoSync: preferences.autoSync,
+    repoFullName: selectedRepo.fullName,
+    branch: targetBranch,
+    folders,
+    defaultParentFolder,
+    problemFolderName,
+    solutionFileName,
+    defaultCommitMessage,
+  };
+}
+
 // Runtime message listener for submission events from content scripts & settings UI
 if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
   chrome.runtime.onMessage.addListener(
@@ -282,9 +354,36 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
       _sender: chrome.runtime.MessageSender,
       sendResponse: (response: unknown) => void,
     ) => {
+      if (message?.type === 'CODESYNC_GET_DIALOG_CONTEXT') {
+        handleGetDialogContext(
+          message.payload as { submission: SubmissionData; problem?: ProblemMetadata | null },
+        )
+          .then((res) => sendResponse(res))
+          .catch((err) => {
+            console.error('[CodeSync] Error loading dialog context:', err);
+            sendResponse({ ok: false, status: 'ERROR', error: String(err) });
+          });
+        return true;
+      }
+
       if (message?.type === 'CODESYNC_SUBMISSION_DETECTED') {
-        const submission = message.payload as SubmissionData;
-        handleSubmissionDetected(submission)
+        const rawPayload = message.payload as
+          | SubmissionData
+          | {
+              submission: SubmissionData;
+              customParentFolder?: string;
+              customCommitMessage?: string;
+            };
+        const submission = 'submission' in rawPayload ? rawPayload.submission : rawPayload;
+        const overrides =
+          'submission' in rawPayload
+            ? {
+                customParentFolder: rawPayload.customParentFolder,
+                customCommitMessage: rawPayload.customCommitMessage,
+              }
+            : undefined;
+
+        handleSubmissionDetected(submission, overrides)
           .then((res) => sendResponse(res))
           .catch((err) => {
             console.error('[CodeSync] Error processing submission:', err);

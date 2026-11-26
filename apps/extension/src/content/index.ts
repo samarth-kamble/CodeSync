@@ -5,7 +5,8 @@ import {
 } from '../leetcode/client';
 import { verifyAcceptedStatus } from '../leetcode/verdict-filter';
 import { mountCodeSyncBadge } from './status-badge';
-import type { SubmissionData } from '@leetsync/shared';
+import { openFolderPickerDialog } from './folder-dialog';
+import type { SubmissionData, ProblemMetadata } from '@leetsync/shared';
 
 console.log('[CodeSync] Content script active on LeetCode page:', window.location.href);
 
@@ -93,17 +94,109 @@ const badge = typeof document !== 'undefined'
         badge?.setState('error', 'No Accepted found');
         return;
       }
-      dispatchToBackground(submissionData);
+      const metadata = await fetchProblemMetadata(slug);
+      await syncWithOptionalDialog(submissionData, metadata);
     })
   : null;
 
-function dispatchToBackground(submissionData: SubmissionData) {
+interface DialogContextResponse {
+  ok?: boolean;
+  status?: string;
+  message?: string;
+  error?: string;
+  askFolderBeforeSync?: boolean;
+  autoSync?: boolean;
+  repoFullName?: string;
+  branch?: string;
+  folders?: string[];
+  defaultParentFolder?: string;
+  problemFolderName?: string;
+  solutionFileName?: string;
+  defaultCommitMessage?: string;
+}
+
+async function syncWithOptionalDialog(
+  submissionData: SubmissionData,
+  problemMetadata: ProblemMetadata | null,
+) {
+  try {
+    const context = await new Promise<DialogContextResponse>((resolve) => {
+      chrome.runtime.sendMessage(
+        {
+          type: 'CODESYNC_GET_DIALOG_CONTEXT',
+          payload: { submission: submissionData, problem: problemMetadata },
+        },
+        (res: DialogContextResponse | undefined) => {
+          if (chrome.runtime.lastError) {
+            resolve({ ok: false, error: chrome.runtime.lastError.message });
+          } else {
+            resolve(res || { ok: false, error: 'No response from service worker' });
+          }
+        },
+      );
+    });
+
+    if (!context.ok) {
+      const msg = context.error || context.message || 'Setup required';
+      badge?.setState(
+        'error',
+        msg.includes('context invalidated') ? 'Refresh LeetCode tab' : msg,
+      );
+      return;
+    }
+
+    if (context.askFolderBeforeSync) {
+      badge?.setState('syncing', 'Choose folder...');
+      const dialogResult = await openFolderPickerDialog({
+        repoFullName: context.repoFullName || '',
+        branch: context.branch || 'main',
+        folders: context.folders || [],
+        defaultParentFolder: context.defaultParentFolder || '',
+        problemFolderName: context.problemFolderName || submissionData.questionSlug,
+        solutionFileName: context.solutionFileName || `${submissionData.questionSlug}.txt`,
+        defaultCommitMessage: context.defaultCommitMessage || '',
+        submission: submissionData,
+        problem: problemMetadata,
+      });
+
+      if (!dialogResult.confirmed) {
+        badge?.setState('idle', 'Cancelled');
+        return;
+      }
+
+      dispatchToBackground(submissionData, {
+        customParentFolder: dialogResult.customParentFolder,
+        customCommitMessage: dialogResult.customCommitMessage,
+      });
+      return;
+    }
+
+    dispatchToBackground(submissionData);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    badge?.setState(
+      'error',
+      msg.includes('context invalidated') ? 'Refresh LeetCode tab' : 'Extension error',
+    );
+  }
+}
+
+function dispatchToBackground(
+  submissionData: SubmissionData,
+  overrides?: { customParentFolder?: string; customCommitMessage?: string },
+) {
   badge?.setState('syncing', 'Syncing...');
   try {
     chrome.runtime.sendMessage(
       {
         type: 'CODESYNC_SUBMISSION_DETECTED',
-        payload: submissionData,
+        payload: overrides
+          ? {
+              submission: submissionData,
+              customParentFolder: overrides.customParentFolder,
+              customCommitMessage: overrides.customCommitMessage,
+            }
+          : submissionData,
       },
       (response: { status?: string; result?: { commitUrl?: string }; message?: string; error?: string } | undefined) => {
         if (chrome.runtime.lastError) {
@@ -192,8 +285,8 @@ async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
     stats: mergedStats,
   };
 
-  console.log('[CodeSync] Dispatching verified Accepted submission to service worker:', submissionData);
-  dispatchToBackground(submissionData);
+  console.log('[CodeSync] Verified Accepted submission ready:', submissionData);
+  await syncWithOptionalDialog(submissionData, metadata);
 }
 
 async function pollSubmissionFallback(started: InterceptedAcceptedPayload) {

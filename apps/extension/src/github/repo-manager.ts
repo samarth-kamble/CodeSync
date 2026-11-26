@@ -80,6 +80,44 @@ export async function fetchRepositoryBranches(
 }
 
 /**
+ * Fetches all folder (tree) paths in a repository branch recursively.
+ * Returns [] if the repository or branch is empty (404/409).
+ */
+export async function fetchRepositoryFolders(
+  token: string,
+  owner: string,
+  repo: string,
+  branch: string,
+): Promise<string[]> {
+  const url = `${GITHUB_API_BASE}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+
+  const response = await fetch(url, {
+    headers: getAuthHeaders(token),
+  });
+
+  if (response.status === 404 || response.status === 409) {
+    return [];
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch repository folders: ${response.status} ${response.statusText}`);
+  }
+
+  const data = (await response.json()) as {
+    tree?: Array<{ path?: string; type?: string }>;
+  };
+
+  if (!Array.isArray(data.tree)) {
+    return [];
+  }
+
+  return data.tree
+    .filter((item) => item.type === 'tree' && Boolean(item.path))
+    .map((item) => item.path as string)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+/**
  * Strictly verifies whether the authenticated user has push/write access to the repository.
  */
 export async function verifyRepositoryPushAccess(

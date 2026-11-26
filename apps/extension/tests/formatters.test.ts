@@ -91,6 +91,20 @@ describe('Path & Filename Formatters', () => {
         langSlug: 'postgresql',
       }),
     ).toBe('sql/0175-combine-two-tables');
+
+    // Custom parent folder from interactive dialog (including nested & root)
+    expect(
+      getProblemFolderPath('1', 'two-sum', '{zero-padded-id}-{slug}', {
+        customParentFolder: 'DSA / Sliding Window',
+      }),
+    ).toBe('dsa/sliding-window/0001-two-sum');
+
+    expect(
+      getProblemFolderPath('1', 'two-sum', '{zero-padded-id}-{slug}', {
+        organization: 'topic',
+        customParentFolder: '',
+      }),
+    ).toBe('0001-two-sum');
   });
 
   it('maps language slugs to canonical file extensions', () => {
