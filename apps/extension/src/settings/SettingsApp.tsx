@@ -6,7 +6,8 @@ import { PreferencesTab } from './tabs/PreferencesTab';
 import { HistoryTab } from './tabs/HistoryTab';
 import { AboutTab } from './tabs/AboutTab';
 import { GithubIcon } from '../components/icons/GithubIcon';
-import { Code2, Sliders, History, Info } from 'lucide-react';
+import { CodeSyncLogo } from '../components/icons/CodeSyncLogo';
+import { Sliders, History, Info } from 'lucide-react';
 import type { SyncHistoryEntry } from '@leetsync/shared';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 
@@ -22,7 +23,9 @@ function SettingsContent() {
     await setSyncHistory([]);
   };
 
-  const handleRetrySync = async (entry: SyncHistoryEntry): Promise<{ status: string; error?: string }> => {
+  const handleRetrySync = async (
+    entry: SyncHistoryEntry,
+  ): Promise<{ status: string; error?: string }> => {
     if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
       return new Promise((resolve) => {
         chrome.runtime.sendMessage(
@@ -56,8 +59,8 @@ function SettingsContent() {
       <header className="border-b border-slate-800 bg-slate-900/60 sticky top-0 z-10 backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
-              <Code2 className="w-5 h-5" />
+            <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+              <CodeSyncLogo className="w-6 h-3.5" />
             </div>
             <div>
               <h1 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
@@ -68,15 +71,6 @@ function SettingsContent() {
               </h1>
             </div>
           </div>
-
-          <a
-            href="https://github.com/samarth-kamble/CodeSync"
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-slate-400 hover:text-slate-200 transition-colors flex items-center gap-1.5"
-          >
-            <span>GitHub Repository</span>
-          </a>
         </div>
       </header>
 
@@ -115,10 +109,7 @@ function SettingsContent() {
           </TabsContent>
 
           <TabsContent value="preferences">
-            <PreferencesTab
-              preferences={preferences}
-              onUpdatePreferences={setPreferences}
-            />
+            <PreferencesTab preferences={preferences} onUpdatePreferences={setPreferences} />
           </TabsContent>
 
           <TabsContent value="history">

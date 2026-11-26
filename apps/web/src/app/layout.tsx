@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'CodeSync - LeetCode to GitHub',
-  description: 'Automatically synchronize accepted LeetCode coding solutions to your GitHub repository.',
+  title: 'CodeSync | LeetCode to GitHub',
+  description:
+    'Manifest V3 Chrome extension that commits accepted LeetCode solutions to your GitHub repository.',
 };
 
 export default function RootLayout({
@@ -13,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark h-full antialiased">
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 font-sans">
+      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100 font-sans">
         {children}
       </body>
     </html>

@@ -83,7 +83,7 @@ export function generateProblemReadme(
 
   // 6. Attribution Footer
   parts.push('---');
-  parts.push('*Synchronized automatically with [CodeSync](https://github.com/samarth-kamble/CodeSync).*');
+  parts.push('*Synchronized automatically with CodeSync.*');
   parts.push('');
 
   return parts.join('\n');

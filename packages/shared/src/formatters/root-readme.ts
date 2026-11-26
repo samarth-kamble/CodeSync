@@ -41,7 +41,7 @@ export function generateRootReadme(
   lines.push(title);
   lines.push('');
   lines.push(
-    'Collection of LeetCode solutions automatically synchronized via **[CodeSync](https://github.com/samarth-kamble/CodeSync)**.',
+    'Collection of LeetCode solutions automatically synchronized via **CodeSync**.',
   );
   lines.push('');
 
@@ -74,7 +74,7 @@ export function generateRootReadme(
 
   lines.push('');
   lines.push('---');
-  lines.push('*Maintained automatically by [CodeSync](https://github.com/samarth-kamble/CodeSync).*');
+  lines.push('*Maintained automatically by CodeSync.*');
   lines.push('');
 
   return lines.join('\n');

@@ -206,14 +206,14 @@ describe('README Generator', () => {
     expect(readme).toContain('## Submissions & Benchmarks');
     expect(readme).toContain('| **Runtime** | `45 ms` | Beats 91.24% of Python 3 submissions |');
     expect(readme).toContain('| **Memory** | `17.6 MB` | Beats 82.15% of Python 3 submissions |');
-    expect(readme).toContain('*Synchronized automatically with [CodeSync](https://github.com/samarth-kamble/CodeSync).*');
+    expect(readme).toContain('*Synchronized automatically with CodeSync.*');
   });
 
   it('handles README generation when submission stats are not present', () => {
     const readme = generateProblemReadme(mockProblem, null);
     expect(readme).toContain('# [704. Binary Search]');
     expect(readme).not.toContain('## Submissions & Benchmarks');
-    expect(readme).toContain('*Synchronized automatically with [CodeSync]');
+    expect(readme).toContain('*Synchronized automatically with CodeSync.*');
   });
 });
 

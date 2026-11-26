@@ -1,4 +1,5 @@
-import { Settings, Code2, RefreshCw } from 'lucide-react';
+import { Settings, RefreshCw } from 'lucide-react';
+import { CodeSyncLogo } from '../components/icons/CodeSyncLogo';
 import { useStorage } from '../storage';
 import { Button } from '../components/ui/Button';
 import { AccountStatusCard } from './components/AccountStatusCard';
@@ -48,8 +49,8 @@ function PopupContent() {
       {/* Header */}
       <header className="flex items-center justify-between pb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
-            <Code2 className="w-5 h-5" />
+          <div className="p-2 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+            <CodeSyncLogo className="w-6 h-3.5" />
           </div>
           <div>
             <h1 className="text-base font-semibold tracking-tight text-white flex items-center gap-1.5">
