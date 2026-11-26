@@ -340,6 +340,12 @@ export async function syncSubmissionToGitHub(options: SyncOptions): Promise<Sync
     submission.questionFrontendId,
     submission.questionSlug,
     preferences.folderNamingFormat,
+    {
+      organization: preferences.folderOrganization,
+      langSlug: submission.lang,
+      difficulty: problem?.difficulty,
+      topicTags: problem?.topicTags,
+    },
   );
   const solutionFileName = getSolutionFilename(
     submission.questionSlug,

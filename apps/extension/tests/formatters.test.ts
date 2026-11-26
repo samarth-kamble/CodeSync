@@ -42,6 +42,57 @@ describe('Path & Filename Formatters', () => {
     ).toBe('leetcode-0015-3sum');
   });
 
+  it('organizes folders by topic, difficulty, or language when configured', () => {
+    // SQL question by language or database tag
+    expect(
+      getProblemFolderPath('175', 'combine-two-tables', '{zero-padded-id}-{slug}', {
+        organization: 'topic',
+        langSlug: 'mysql',
+        topicTags: [{ name: 'Database', slug: 'database' }],
+      }),
+    ).toBe('sql/0175-combine-two-tables');
+
+    // DP takes priority over Array
+    expect(
+      getProblemFolderPath('198', 'house-robber', '{zero-padded-id}-{slug}', {
+        organization: 'topic',
+        langSlug: 'python3',
+        topicTags: [
+          { name: 'Array', slug: 'array' },
+          { name: 'Dynamic Programming', slug: 'dynamic-programming' },
+        ],
+      }),
+    ).toBe('dynamic-programming/0198-house-robber');
+
+    // Linked List
+    expect(
+      getProblemFolderPath('206', 'reverse-linked-list', '{zero-padded-id}-{slug}', {
+        organization: 'topic',
+        langSlug: 'cpp',
+        topicTags: [
+          { name: 'Linked List', slug: 'linked-list' },
+          { name: 'Recursion', slug: 'recursion' },
+        ],
+      }),
+    ).toBe('linked-list/0206-reverse-linked-list');
+
+    // Difficulty organization
+    expect(
+      getProblemFolderPath('704', 'binary-search', '{zero-padded-id}-{slug}', {
+        organization: 'difficulty',
+        difficulty: 'Easy',
+      }),
+    ).toBe('easy/0704-binary-search');
+
+    // Language organization (SQL normalized to sql/)
+    expect(
+      getProblemFolderPath('175', 'combine-two-tables', '{zero-padded-id}-{slug}', {
+        organization: 'language',
+        langSlug: 'postgresql',
+      }),
+    ).toBe('sql/0175-combine-two-tables');
+  });
+
   it('maps language slugs to canonical file extensions', () => {
     expect(getLanguageFileExtension('python3')).toBe('py');
     expect(getLanguageFileExtension('python')).toBe('py');
@@ -260,7 +311,7 @@ describe('Commit Message Formatter', () => {
 
   it('formats default commit message pattern properly', () => {
     const msg = formatCommitMessage(DEFAULT_COMMIT_FORMAT, mockSubmission, mockProblem);
-    expect(msg).toBe('feat(leetcode): solve 704 Binary Search | Python 3 | 45 ms, 17.6 MB');
+    expect(msg).toBe('Time: 45 ms (91.24%) | Memory: 17.6 MB (82.15%) - CodeSync');
   });
 
   it('interpolates custom templates with zero-padded IDs and percentiles', () => {
@@ -269,7 +320,7 @@ describe('Commit Message Formatter', () => {
 
     const msg = formatCommitMessage(customTemplate, mockSubmission, mockProblem);
     expect(msg).toBe(
-      'Sync [0704] Binary Search (Python 3) - Runtime: 45 ms (91.2%) [Difficulty: Easy]',
+      'Sync [0704] Binary Search (Python 3) - Runtime: 45 ms (91.24%) [Difficulty: Easy]',
     );
   });
 });

@@ -4,7 +4,7 @@ import { getLanguageDefinition } from '../constants/languages.js';
 import { padProblemNumber } from './paths.js';
 
 export const DEFAULT_COMMIT_FORMAT =
-  'feat(leetcode): solve {number} {title} | {lang} | {runtime}, {memory}';
+  'Time: {runtime} ({runtimePercentile}) | Memory: {memory} ({memoryPercentile}) - CodeSync';
 
 /**
  * Formats a Git commit message based on the user's template and submission data.
@@ -35,12 +35,12 @@ export function formatCommitMessage(
 
   const runtimePercentile =
     submission.stats?.runtimePercentile !== undefined
-      ? `${submission.stats.runtimePercentile.toFixed(1)}%`
+      ? `${submission.stats.runtimePercentile.toFixed(2)}%`
       : 'N/A';
 
   const memoryPercentile =
     submission.stats?.memoryPercentile !== undefined
-      ? `${submission.stats.memoryPercentile.toFixed(1)}%`
+      ? `${submission.stats.memoryPercentile.toFixed(2)}%`
       : 'N/A';
 
   return pattern

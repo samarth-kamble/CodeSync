@@ -7,7 +7,9 @@ import { CheckCircle2, RotateCcw } from 'lucide-react';
 import {
   type UserPreferences,
   type OverwritePolicy,
+  type FolderOrganization,
   DEFAULT_PREFERENCES,
+  formatCommitMessage,
 } from '@leetsync/shared';
 
 interface PreferencesTabProps {
@@ -67,7 +69,8 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
           <div className="space-y-2">
             <h4 className="text-xs font-medium text-slate-200">Resubmission Update Policy</h4>
             <p className="text-[11px] text-slate-400">
-              Determines how LeetSync handles subsequent Accepted solutions for the same problem and language.
+              Determines how LeetSync handles subsequent Accepted solutions for the same problem and
+              language.
             </p>
 
             <div className="grid grid-cols-1 gap-2 pt-1">
@@ -125,6 +128,65 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
         <CardContent className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1">
+              Folder Organization
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              {[
+                {
+                  id: 'flat',
+                  title: 'Flat (Default)',
+                  example: '0704-binary-search/',
+                },
+                {
+                  id: 'topic',
+                  title: 'By Topic (SQL, DP, Linked List...)',
+                  example: 'sql/0175-combine-two-tables/',
+                },
+                {
+                  id: 'difficulty',
+                  title: 'By Difficulty',
+                  example: 'easy/0704-binary-search/',
+                },
+                {
+                  id: 'language',
+                  title: 'By Language',
+                  example: 'python3/0704-binary-search/',
+                },
+              ].map((mode) => {
+                const current = prefs.folderOrganization || 'flat';
+                return (
+                  <label
+                    key={mode.id}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
+                      current === mode.id
+                        ? 'border-orange-500/50 bg-orange-500/5 text-slate-100'
+                        : 'border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="folderOrganization"
+                      value={mode.id}
+                      checked={current === mode.id}
+                      onChange={() =>
+                        setPrefs({ ...prefs, folderOrganization: mode.id as FolderOrganization })
+                      }
+                      className="mt-0.5 accent-orange-500"
+                    />
+                    <div className="min-w-0">
+                      <span className="font-medium text-slate-200 block">{mode.title}</span>
+                      <code className="text-[10px] text-orange-400 block truncate mt-0.5">
+                        {mode.example}
+                      </code>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-300 mb-1">
               Folder Naming Format
             </label>
             <Input
@@ -151,17 +213,31 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
                 Live Preview:
               </span>
               <p className="font-mono text-emerald-400">
-                feat(leetcode): solve 704 Binary Search | C++ | 0ms, 31.4MB
+                {formatCommitMessage(prefs.commitMessageFormat, {
+                  submissionId: 'preview',
+                  questionId: '704',
+                  questionFrontendId: '704',
+                  questionTitle: 'Binary Search',
+                  questionSlug: 'binary-search',
+                  status: 'Accepted',
+                  lang: 'cpp',
+                  code: '',
+                  timestamp: 0,
+                  stats: {
+                    runtimeMs: 2,
+                    runtimeDisplay: '2 ms',
+                    runtimePercentile: 98.21,
+                    memoryBytes: 50121932,
+                    memoryDisplay: '47.8 MB',
+                    memoryPercentile: 78.01,
+                  },
+                })}
               </p>
             </div>
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <Button
-              type="button"
-              onClick={handleSave}
-              className="gap-2"
-            >
+            <Button type="button" onClick={handleSave} className="gap-2">
               <CheckCircle2 className="w-4 h-4" /> Save Preferences
             </Button>
 
@@ -187,4 +263,3 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
     </div>
   );
 }
-

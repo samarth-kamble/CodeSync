@@ -2,11 +2,14 @@ import type { GitHubUser } from './github.js';
 
 export type OverwritePolicy = 'always' | 'improved' | 'never';
 
+export type FolderOrganization = 'flat' | 'topic' | 'difficulty' | 'language';
+
 export interface UserPreferences {
   autoSync: boolean;
   overwritePolicy: OverwritePolicy;
   commitMessageFormat: string;
   folderNamingFormat: string;
+  folderOrganization?: FolderOrganization;
   enableNotifications?: boolean;
 }
 
@@ -30,8 +33,9 @@ export interface AuthState {
 export const DEFAULT_PREFERENCES: UserPreferences = {
   autoSync: true,
   overwritePolicy: 'always',
-  commitMessageFormat: 'feat(leetcode): solve {number} {title} | {lang} | {runtime}, {memory}',
+  commitMessageFormat: 'Time: {runtime} ({runtimePercentile}) | Memory: {memory} ({memoryPercentile}) - CodeSync',
   folderNamingFormat: '{zero-padded-id}-{slug}',
+  folderOrganization: 'flat',
   enableNotifications: true,
 };
 
