@@ -26,7 +26,7 @@ describe('Chrome Web Store Manifest Compliance', () => {
   });
 
   it('enforces least-privilege permissions and avoids wildcard host permissions', () => {
-    expect(manifest.permissions).toEqual(['storage', 'notifications', 'identity']);
+    expect(manifest.permissions).toEqual(['storage', 'notifications', 'identity', 'alarms']);
     expect(manifest.host_permissions).not.toContain('<all_urls>');
     expect(manifest.host_permissions).not.toContain('*://*/*');
     expect(manifest.host_permissions).toContain('https://api.github.com/*');

@@ -9,6 +9,7 @@ import {
   type ProblemMetadata,
   type SyncHistoryEntry,
   type UserPreferences,
+  type RetryQueueItem,
 } from '@leetsync/shared';
 import { getStorageItem, setStorageItem } from '../storage/index';
 import { fetchProblemMetadata } from '../leetcode/client';
@@ -22,6 +23,162 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onInstalled) {
   chrome.runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
     console.log('[CodeSync] Extension installed/updated. Reason:', details.reason);
   });
+}
+
+export function isAuth401Error(error?: string): boolean {
+  return /\b401\b|session expired|bad credentials|unauthorized/i.test(error || '');
+}
+
+export function isTransientNetworkError(error?: string): boolean {
+  if (!error || isAuth401Error(error)) return false;
+  return /failed to fetch|network|timeout|econn|offline|500|502|503|504|429/i.test(error);
+}
+
+async function markSessionExpired(): Promise<void> {
+  const auth = await getStorageItem('auth');
+  if (!auth?.isConnected) return;
+  await setStorageItem('auth', {
+    ...auth,
+    sessionExpired: true,
+    authError: 'GitHub session expired (401). Reconnect your account.',
+  });
+}
+
+const RETRY_ALARM_NAME = 'codesync_retry_queue';
+const MAX_RETRY_ATTEMPTS = 5;
+
+function scheduleRetryAlarm(delayMinutes: number = 2): void {
+  if (typeof chrome !== 'undefined' && chrome?.alarms?.create) {
+    chrome.alarms.create(RETRY_ALARM_NAME, { delayInMinutes: Math.max(1, delayMinutes) });
+  }
+}
+
+export async function enqueueRetryItem(
+  submission: SubmissionData,
+  error: string,
+  overrides?: { customParentFolder?: string; customCommitMessage?: string },
+): Promise<void> {
+  const queue = (await getStorageItem('retryQueue')) || [];
+  const exists = queue.some(
+    (item) => item.submission.submissionId === submission.submissionId,
+  );
+  if (exists) return;
+
+  const item: RetryQueueItem = {
+    id: `retry_${Date.now()}_${submission.submissionId}`,
+    submission,
+    overrides,
+    attempts: 1,
+    nextRetryAt: Date.now() + 60 * 1000,
+    lastError: error,
+    createdAt: Date.now(),
+  };
+
+  await setStorageItem('retryQueue', [...queue, item].slice(0, 25));
+  scheduleRetryAlarm(1);
+}
+
+export async function flushRetryQueue(force: boolean = false): Promise<{ processed: number; succeeded: number; remaining: number }> {
+  const queue = (await getStorageItem('retryQueue')) || [];
+  if (queue.length === 0) {
+    return { processed: 0, succeeded: 0, remaining: 0 };
+  }
+
+  const auth = await getStorageItem('auth');
+  const selectedRepo = await getStorageItem('selectedRepo');
+  const preferences = await getStorageItem('preferences');
+
+  if (!auth?.isConnected || !auth.token || auth.sessionExpired || !selectedRepo) {
+    return { processed: 0, succeeded: 0, remaining: queue.length };
+  }
+
+  const now = Date.now();
+  const remaining: RetryQueueItem[] = [];
+  let processed = 0;
+  let succeeded = 0;
+
+  for (const item of queue) {
+    if (!force && item.nextRetryAt > now) {
+      remaining.push(item);
+      continue;
+    }
+
+    processed += 1;
+    const syncHistory = (await getStorageItem('syncHistory')) || [];
+    const problem =
+      item.submission.platform === 'gfg'
+        ? await fetchGfgProblemMetadata(item.submission.questionSlug)
+        : await fetchProblemMetadata(item.submission.questionSlug);
+
+    const result = await syncSubmissionToGitHub({
+      submission: item.submission,
+      problem,
+      token: auth.token,
+      repo: selectedRepo,
+      preferences,
+      syncHistory,
+      customParentFolder: item.overrides?.customParentFolder,
+      customCommitMessage: item.overrides?.customCommitMessage,
+    });
+
+    if (result.status === 'SUCCESS' || result.status === 'SKIPPED') {
+      succeeded += 1;
+      if (result.status === 'SUCCESS') {
+        const targetBranch = selectedRepo.targetBranch || selectedRepo.defaultBranch || 'main';
+        const newEntry: SyncHistoryEntry = {
+          id: `sync_${Date.now()}_${item.submission.submissionId}`,
+          platform: item.submission.platform || problem?.platform || 'leetcode',
+          problemUrl: item.submission.problemUrl || problem?.problemUrl,
+          submissionId: item.submission.submissionId,
+          questionId: item.submission.questionId,
+          questionFrontendId: item.submission.questionFrontendId,
+          questionTitle: item.submission.questionTitle,
+          questionSlug: item.submission.questionSlug,
+          difficulty: problem?.difficulty,
+          lang: item.submission.lang,
+          repo: selectedRepo.fullName,
+          branch: targetBranch,
+          folderPath: result.folderPath,
+          solutionFilePath: result.solutionPath,
+          readmeFilePath: result.readmePath,
+          commitSha: result.commitSha,
+          commitUrl: result.commitUrl,
+          status: 'SUCCESS',
+          timestamp: Date.now(),
+          runtimeMs: item.submission.stats?.runtimeMs,
+          runtimeDisplay: item.submission.stats?.runtimeDisplay,
+          memoryBytes: item.submission.stats?.memoryBytes,
+          memoryDisplay: item.submission.stats?.memoryDisplay,
+        };
+        await setStorageItem('syncHistory', [newEntry, ...syncHistory].slice(0, 100));
+      }
+      continue;
+    }
+
+    if (isAuth401Error(result.error)) {
+      await markSessionExpired();
+      remaining.push(item);
+      continue;
+    }
+
+    if (item.attempts < MAX_RETRY_ATTEMPTS && isTransientNetworkError(result.error)) {
+      const nextAttempts = item.attempts + 1;
+      const backoffMinutes = Math.min(16, Math.pow(2, item.attempts));
+      remaining.push({
+        ...item,
+        attempts: nextAttempts,
+        nextRetryAt: Date.now() + backoffMinutes * 60 * 1000,
+        lastError: result.error || 'Transient network error',
+      });
+    }
+  }
+
+  await setStorageItem('retryQueue', remaining);
+  if (remaining.length > 0) {
+    scheduleRetryAlarm(2);
+  }
+
+  return { processed, succeeded, remaining: remaining.length };
 }
 
 export function shouldSendNotification(preferences?: Partial<UserPreferences> | null): boolean {
@@ -73,6 +230,13 @@ async function handleSubmissionDetected(
   if (!auth?.isConnected || !auth.token) {
     console.warn('[CodeSync] GitHub account is not connected. Skipping sync.');
     return { status: 'NOT_CONNECTED', message: 'GitHub account is not connected.' };
+  }
+
+  if (auth.sessionExpired) {
+    return {
+      status: 'FAILED',
+      error: 'GitHub session expired (401) — reconnect in Settings',
+    };
   }
 
   if (!selectedRepo) {
@@ -180,6 +344,16 @@ async function handleSubmissionDetected(
 
   const updatedHistory = [failedEntry, ...syncHistory].slice(0, 100);
   await setStorageItem('syncHistory', updatedHistory);
+
+  if (isAuth401Error(result.error)) {
+    await markSessionExpired();
+  } else if (isTransientNetworkError(result.error)) {
+    await enqueueRetryItem(
+      submission,
+      result.error || 'Transient network error',
+      overrides,
+    );
+  }
 
   dispatchNotification(
     `codesync_err_${submission.submissionId}`,
@@ -306,6 +480,13 @@ async function handleGetDialogContext(payload: {
   if (!auth?.isConnected || !auth.token) {
     return { ok: false, status: 'NOT_CONNECTED', message: 'GitHub account is not connected.' };
   }
+  if (auth.sessionExpired) {
+    return {
+      ok: false,
+      status: 'SESSION_EXPIRED',
+      message: 'GitHub session expired (401) — reconnect in Settings',
+    };
+  }
   if (!selectedRepo) {
     return { ok: false, status: 'NO_REPO_SELECTED', message: 'No target repository configured.' };
   }
@@ -419,7 +600,31 @@ if (typeof chrome !== 'undefined' && chrome?.runtime?.onMessage) {
         return true;
       }
 
+      if (message?.type === 'CODESYNC_FLUSH_RETRY_QUEUE') {
+        flushRetryQueue(true)
+          .then((res) => sendResponse({ status: 'OK', ...res }))
+          .catch((err) => {
+            console.error('[CodeSync] Error flushing retry queue:', err);
+            sendResponse({ status: 'FAILED', error: String(err) });
+          });
+        return true;
+      }
+
       return false;
     },
   );
+}
+
+if (typeof chrome !== 'undefined' && chrome?.alarms?.onAlarm) {
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === RETRY_ALARM_NAME) {
+      void flushRetryQueue(false);
+    }
+  });
+}
+
+if (typeof chrome !== 'undefined' && chrome?.runtime?.onStartup) {
+  chrome.runtime.onStartup.addListener(() => {
+    void flushRetryQueue(false);
+  });
 }

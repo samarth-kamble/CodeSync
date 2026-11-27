@@ -14,6 +14,7 @@ function PopupContent() {
   const [selectedRepo] = useStorage('selectedRepo');
   const [preferences, setPreferences] = useStorage('preferences');
   const [syncHistory] = useStorage('syncHistory');
+  const [retryQueue] = useStorage('retryQueue');
 
   const openSettings = (_tab?: string) => {
     if (chrome?.runtime?.openOptionsPage) {
@@ -42,6 +43,12 @@ function PopupContent() {
       ...prev,
       autoSync: checked,
     }));
+  };
+
+  const handleFlushRetryQueue = () => {
+    if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({ type: 'CODESYNC_FLUSH_RETRY_QUEUE' });
+    }
   };
 
   return (
@@ -94,6 +101,21 @@ function PopupContent() {
 
         {/* Statistics & Gate Status */}
         <StatsCard syncHistory={syncHistory} />
+
+        {retryQueue.length > 0 && (
+          <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-sky-500/30 bg-sky-500/10 text-xs">
+            <span className="text-sky-200 text-[11px]">
+              {retryQueue.length} solution{retryQueue.length === 1 ? '' : 's'} queued for retry
+            </span>
+            <button
+              type="button"
+              onClick={handleFlushRetryQueue}
+              className="text-[11px] font-medium text-sky-300 hover:text-white underline cursor-pointer"
+            >
+              Retry now
+            </button>
+          </div>
+        )}
 
         {/* Recent Submissions Feed */}
         <RecentSubmissionsList

@@ -13,8 +13,12 @@ import {
   CheckCircle2,
   Download,
   Loader2,
+  Flame,
+  Trophy,
+  Calendar,
 } from 'lucide-react';
 import { getProblemUrl, type SyncHistoryEntry } from '@leetsync/shared';
+import { computeSyncAnalytics } from '../../analytics/streak';
 
 interface HistoryTabProps {
   history: SyncHistoryEntry[];
@@ -34,9 +38,13 @@ export function filterHistoryEntries(
   history: SyncHistoryEntry[],
   search: string,
   filter: 'ALL' | 'SUCCESS' | 'FAILED' | 'SKIPPED',
+  platformFilter: 'ALL' | 'leetcode' | 'gfg' = 'ALL',
 ): SyncHistoryEntry[] {
   const query = search.trim().toLowerCase();
   return history.filter((item) => {
+    const itemPlatform = item.platform || 'leetcode';
+    const matchesPlatform = platformFilter === 'ALL' || itemPlatform === platformFilter;
+
     const matchesSearch =
       !query ||
       item.questionTitle.toLowerCase().includes(query) ||
@@ -44,17 +52,52 @@ export function filterHistoryEntries(
       item.lang.toLowerCase().includes(query);
 
     const matchesFilter = filter === 'ALL' || item.status === filter;
-    return matchesSearch && matchesFilter;
+    return matchesPlatform && matchesSearch && matchesFilter;
   });
 }
 
 export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'SUCCESS' | 'FAILED' | 'SKIPPED'>('ALL');
+  const [platformFilter, setPlatformFilter] = useState<'ALL' | 'leetcode' | 'gfg'>('ALL');
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [retryFeedback, setRetryFeedback] = useState<{ id: string; message: string; isError: boolean } | null>(null);
 
-  const filtered = filterHistoryEntries(history, search, filter);
+  const platformScopedHistory =
+    platformFilter === 'ALL'
+      ? history
+      : history.filter((item) => (item.platform || 'leetcode') === platformFilter);
+  const filtered = filterHistoryEntries(history, search, filter, platformFilter);
+  const analytics = computeSyncAnalytics(platformScopedHistory, Date.now(), 168);
+  const totalPlatformSolves =
+    analytics.platformBreakdown.leetcode + analytics.platformBreakdown.gfg;
+  const lcPct =
+    totalPlatformSolves > 0
+      ? Math.round((analytics.platformBreakdown.leetcode / totalPlatformSolves) * 100)
+      : 0;
+  const gfgPct = totalPlatformSolves > 0 ? 100 - lcPct : 0;
+
+  // Align 24-week grid to Sunday..Saturday rows so Mon/Wed/Fri labels match actual weekdays
+  const firstDateParts = analytics.heatmapDays[0]?.date.split('-').map(Number);
+  const leadingPad = firstDateParts
+    ? new Date(firstDateParts[0], firstDateParts[1] - 1, firstDateParts[2]).getDay()
+    : 0;
+  const paddedDays: Array<(typeof analytics.heatmapDays)[number] | null> = [
+    ...Array.from({ length: leadingPad }, () => null),
+    ...analytics.heatmapDays,
+  ];
+  const weeks: Array<typeof paddedDays> = [];
+  for (let i = 0; i < paddedDays.length; i += 7) {
+    weeks.push(paddedDays.slice(i, i + 7));
+  }
+
+  const HEATMAP_COLORS: Record<0 | 1 | 2 | 3 | 4, string> = {
+    0: 'bg-slate-800/70 border-slate-800',
+    1: 'bg-emerald-950 border-emerald-800/70',
+    2: 'bg-emerald-800 border-emerald-600/70',
+    3: 'bg-emerald-600 border-emerald-400/70',
+    4: 'bg-emerald-400 border-emerald-300',
+  };
 
   const handleExport = () => {
     const json = serializeHistoryForExport(history);
@@ -95,6 +138,136 @@ export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabP
 
   return (
     <div className="space-y-6">
+      {/* Platform Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-800">
+          {(
+            [
+              { id: 'ALL', label: 'All Platforms' },
+              { id: 'leetcode', label: 'LeetCode' },
+              { id: 'gfg', label: 'GeeksforGeeks' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setPlatformFilter(tab.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                platformFilter === tab.id
+                  ? 'bg-orange-500 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-slate-400 font-mono">
+          Showing {platformScopedHistory.length} of {history.length} entries
+        </span>
+      </div>
+
+      {/* Streak & Sync Analytics */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Streak &amp; Sync Analytics</CardTitle>
+          <span className="text-[11px] text-slate-400 font-mono">
+            Last 24 weeks ({analytics.totalSynced} total)
+          </span>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <Flame className="w-3.5 h-3.5 text-orange-400" /> Current Streak
+              </div>
+              <div className="text-lg font-mono font-bold text-white mt-1">
+                {analytics.currentStreak} day{analytics.currentStreak === 1 ? '' : 's'}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" /> Longest Streak
+              </div>
+              <div className="text-lg font-mono font-bold text-white mt-1">
+                {analytics.longestStreak} day{analytics.longestStreak === 1 ? '' : 's'}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                <Calendar className="w-3.5 h-3.5 text-emerald-400" /> Solved Today
+              </div>
+              <div className="text-lg font-mono font-bold text-white mt-1">
+                {analytics.todayCount}
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+              <div className="text-[11px] text-slate-400">Platform Breakdown</div>
+              <div className="flex items-center gap-2 text-xs font-mono font-semibold mt-1.5">
+                <span className="text-amber-300">LC {analytics.platformBreakdown.leetcode}</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-emerald-400">GFG {analytics.platformBreakdown.gfg}</span>
+              </div>
+              {totalPlatformSolves > 0 && (
+                <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden flex">
+                  <div className="bg-amber-400 h-full" style={{ width: `${lcPct}%` }} />
+                  <div className="bg-emerald-500 h-full" style={{ width: `${gfgPct}%` }} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[11px] text-slate-400">
+              <span>Daily Activity Heatmap (24 weeks)</span>
+              <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                <span>Less</span>
+                {([0, 1, 2, 3, 4] as const).map((lvl) => (
+                  <span
+                    key={lvl}
+                    className={`w-2.5 h-2.5 rounded-[2px] border ${HEATMAP_COLORS[lvl]}`}
+                  />
+                ))}
+                <span>More</span>
+              </div>
+            </div>
+            <div className="rounded-lg bg-slate-950/50 border border-slate-800/80 p-3 overflow-x-auto">
+              <div className="inline-flex items-start gap-2">
+                <div className="grid grid-rows-7 gap-1 text-[9px] text-slate-500 pr-1 pt-0.5 select-none">
+                  <span className="h-3 leading-3" />
+                  <span className="h-3 leading-3">Mon</span>
+                  <span className="h-3 leading-3" />
+                  <span className="h-3 leading-3">Wed</span>
+                  <span className="h-3 leading-3" />
+                  <span className="h-3 leading-3">Fri</span>
+                  <span className="h-3 leading-3" />
+                </div>
+                <div className="flex gap-1">
+                  {weeks.map((week, wIdx) => (
+                    <div key={wIdx} className="grid grid-rows-7 gap-1">
+                      {week.map((day, dIdx) =>
+                        day ? (
+                          <div
+                            key={day.date}
+                            title={`${day.date}: ${day.count} ${day.count === 1 ? 'solution' : 'solutions'}`}
+                            className={`w-3 h-3 rounded-[2px] border transition-transform hover:scale-125 ${HEATMAP_COLORS[day.level]}`}
+                          />
+                        ) : (
+                          <div key={`pad-${wIdx}-${dIdx}`} className="w-3 h-3" />
+                        ),
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Synchronization Audit Log</CardTitle>
@@ -218,6 +391,15 @@ export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabP
                         )}
                       </td>
                       <td className="py-2.5 px-3 whitespace-nowrap align-top">
+                        <span
+                          className={`inline-block text-[10px] font-mono px-1.5 py-0.5 rounded border mr-2 ${
+                            (item.platform || 'leetcode') === 'gfg'
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                          }`}
+                        >
+                          {(item.platform || 'leetcode') === 'gfg' ? 'GFG' : 'LC'}
+                        </span>
                         <span className="font-mono text-slate-500 mr-1.5">
                           #{item.questionFrontendId}
                         </span>

@@ -47,7 +47,8 @@
   "permissions": [
     "storage",
     "notifications",
-    "identity"
+    "identity",
+    "alarms"
   ],
   "host_permissions": [
     "https://leetcode.com/*",

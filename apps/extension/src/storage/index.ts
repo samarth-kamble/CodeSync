@@ -4,6 +4,7 @@ import {
   type SelectedRepository,
   type UserPreferences,
   type SyncHistoryEntry,
+  type RetryQueueItem,
   DEFAULT_AUTH_STATE,
   DEFAULT_PREFERENCES,
 } from '@leetsync/shared';
@@ -13,6 +14,7 @@ export interface StorageSchema {
   selectedRepo: SelectedRepository | null;
   preferences: UserPreferences;
   syncHistory: SyncHistoryEntry[];
+  retryQueue: RetryQueueItem[];
 }
 
 export const STORAGE_DEFAULTS: StorageSchema = {
@@ -20,6 +22,7 @@ export const STORAGE_DEFAULTS: StorageSchema = {
   selectedRepo: null,
   preferences: DEFAULT_PREFERENCES,
   syncHistory: [],
+  retryQueue: [],
 };
 
 const isChromeStorageAvailable = () => {

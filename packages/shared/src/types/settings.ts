@@ -1,4 +1,5 @@
 import type { GitHubUser } from './github.js';
+import type { SubmissionData } from './submission.js';
 
 export type OverwritePolicy = 'always' | 'improved' | 'never';
 
@@ -40,6 +41,21 @@ export interface AuthState {
   user: GitHubUser | null;
   token?: string | null;
   lastConnectedAt?: number | null;
+  sessionExpired?: boolean;
+  authError?: string;
+}
+
+export interface RetryQueueItem {
+  id: string;
+  submission: SubmissionData;
+  overrides?: {
+    customParentFolder?: string;
+    customCommitMessage?: string;
+  };
+  attempts: number;
+  nextRetryAt: number;
+  lastError: string;
+  createdAt: number;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -59,5 +75,6 @@ export const DEFAULT_AUTH_STATE: AuthState = {
   user: null,
   token: null,
   lastConnectedAt: null,
+  sessionExpired: false,
 };
 

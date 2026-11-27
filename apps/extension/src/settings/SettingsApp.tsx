@@ -7,9 +7,11 @@ import { HistoryTab } from './tabs/HistoryTab';
 import { AboutTab } from './tabs/AboutTab';
 import { GithubIcon } from '../components/icons/GithubIcon';
 import { CodeSyncLogo } from '../components/icons/CodeSyncLogo';
-import { Sliders, History, Info } from 'lucide-react';
+import { Sliders, History, Info, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { SyncHistoryEntry } from '@leetsync/shared';
 import { ErrorBoundary } from '../components/ui/ErrorBoundary';
+import { initiateGitHubOAuth } from '../github/auth';
+import { Button } from '../components/ui/Button';
 
 function SettingsContent() {
   const [auth, setAuth] = useStorage('auth');
@@ -76,6 +78,28 @@ function SettingsContent() {
 
       {/* Main Container */}
       <main className="max-w-5xl mx-auto px-4 py-8 flex-1 w-full">
+        {auth.isConnected && auth.sessionExpired && (
+          <div className="mb-6 p-4 rounded-xl border border-amber-500/40 bg-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5 text-xs text-amber-200">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-100">GitHub Session Expired (401)</p>
+                <p className="text-amber-200/80 mt-0.5">
+                  Your saved GitHub token was rejected. Reconnect your account to resume automatic syncing.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void initiateGitHubOAuth().catch(() => setActiveTab('account'))}
+              className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs gap-1.5 shrink-0"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Reconnect GitHub
+            </Button>
+          </div>
+        )}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-slate-900/80 border border-slate-800 p-1 rounded-xl">
             <TabsTrigger value="account" className="gap-2">

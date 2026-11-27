@@ -131,6 +131,7 @@ export async function initiateGitHubOAuth(
     user,
     token: exchangeData.access_token,
     lastConnectedAt: Date.now(),
+    sessionExpired: false,
   };
 
   await setStorageItem('auth', authState);
@@ -155,6 +156,7 @@ export async function connectWithToken(token: string): Promise<AuthState> {
     user,
     token: cleanToken,
     lastConnectedAt: Date.now(),
+    sessionExpired: false,
   };
 
   await setStorageItem('auth', authState);

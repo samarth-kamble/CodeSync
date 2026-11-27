@@ -2,7 +2,7 @@ import { GithubIcon } from '../../components/icons/GithubIcon';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { LogOut } from 'lucide-react';
+import { LogOut, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { AuthState } from '@leetsync/shared';
 
 interface AccountStatusCardProps {
@@ -12,21 +12,40 @@ interface AccountStatusCardProps {
 }
 
 export function AccountStatusCard({ auth, onConnect, onDisconnect }: AccountStatusCardProps) {
+  const isExpired = Boolean(auth.isConnected && auth.sessionExpired);
+
   return (
-    <Card>
+    <Card className={isExpired ? 'border-amber-500/40 bg-amber-950/10' : undefined}>
       <CardHeader>
         <CardTitle>GitHub Account</CardTitle>
-        <Badge variant={auth.isConnected ? 'success' : 'warning'}>
+        <Badge variant={!auth.isConnected || isExpired ? 'warning' : 'success'}>
           <span
             className={`w-1.5 h-1.5 rounded-full ${
-              auth.isConnected ? 'bg-emerald-400' : 'bg-amber-400'
+              !auth.isConnected || isExpired ? 'bg-amber-400' : 'bg-emerald-400'
             }`}
           />
-          {auth.isConnected ? 'Connected' : 'Not Connected'}
+          {isExpired ? 'Session Expired' : auth.isConnected ? 'Connected' : 'Not Connected'}
         </Badge>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="space-y-2.5">
+        {isExpired && (
+          <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 space-y-2">
+            <div className="flex items-start gap-2 text-[11px] text-amber-200">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+              <span>GitHub rejected your token (401). Reconnect to resume syncing.</span>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onConnect}
+              className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Reconnect GitHub
+            </Button>
+          </div>
+        )}
         {!auth.isConnected ? (
           <Button
             type="button"
