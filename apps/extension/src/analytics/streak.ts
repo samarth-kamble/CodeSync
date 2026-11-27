@@ -14,6 +14,7 @@ export interface SyncAnalytics {
   platformBreakdown: {
     leetcode: number;
     gfg: number;
+    hackerrank: number;
     codechef: number;
   };
   heatmapDays: HeatmapDay[];
@@ -48,12 +49,14 @@ export function computeSyncAnalytics(
   const platformBreakdown = {
     leetcode: 0,
     gfg: 0,
+    hackerrank: 0,
     codechef: 0,
   };
 
   for (const item of successful) {
     const plat = item.platform || 'leetcode';
     if (plat === 'gfg') platformBreakdown.gfg += 1;
+    else if (plat === 'hackerrank') platformBreakdown.hackerrank += 1;
     else if (plat === 'codechef') platformBreakdown.codechef += 1;
     else platformBreakdown.leetcode += 1;
 

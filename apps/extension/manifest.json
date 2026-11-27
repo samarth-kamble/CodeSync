@@ -27,7 +27,9 @@
         "*://leetcode.com/problems/*",
         "*://*.leetcode.com/problems/*",
         "*://*.geeksforgeeks.org/problems/*",
-        "*://practice.geeksforgeeks.org/problems/*"
+        "*://practice.geeksforgeeks.org/problems/*",
+        "*://*.hackerrank.com/challenges/*",
+        "*://*.hackerrank.com/contests/*/challenges/*"
       ],
       "js": ["src/content/interceptor.iife.ts"],
       "run_at": "document_start",
@@ -38,7 +40,9 @@
         "*://leetcode.com/problems/*",
         "*://*.leetcode.com/problems/*",
         "*://*.geeksforgeeks.org/problems/*",
-        "*://practice.geeksforgeeks.org/problems/*"
+        "*://practice.geeksforgeeks.org/problems/*",
+        "*://*.hackerrank.com/challenges/*",
+        "*://*.hackerrank.com/contests/*/challenges/*"
       ],
       "js": ["src/content/index.ts"],
       "run_at": "document_idle"
@@ -55,6 +59,7 @@
     "https://*.leetcode.com/*",
     "https://*.geeksforgeeks.org/*",
     "https://practiceapi.geeksforgeeks.org/*",
+    "https://*.hackerrank.com/*",
     "https://api.github.com/*"
   ]
 }

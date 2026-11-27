@@ -5,7 +5,7 @@
  */
 
 interface PendingSubmission {
-  platform: 'leetcode' | 'gfg';
+  platform: 'leetcode' | 'gfg' | 'hackerrank';
   submissionId?: string;
   lang: string;
   code: string;
@@ -16,6 +16,8 @@ interface PendingSubmission {
 
 const isGfgHost =
   typeof window !== 'undefined' && window.location.hostname.includes('geeksforgeeks.org');
+const isHackerRankHost =
+  typeof window !== 'undefined' && window.location.hostname.includes('hackerrank.com');
 
 const pendingBySubmissionId = new Map<string, PendingSubmission>();
 let lastSubmittedRequest: PendingSubmission | null = null;
@@ -121,7 +123,9 @@ window.addEventListener('message', (event: MessageEvent) => {
 
 function handleSubmissionRequest(url: string, requestBody: string) {
   try {
-    const slugMatch = url.match(/\/problems\/([^/]+)\/submit(?:\/|\?|$)/);
+    const slugMatch =
+      url.match(/\/problems\/([^/]+)\/submit(?:\/|\?|$)/) ||
+      url.match(/\/challenges\/([^/]+)\/submissions(?:\/|\?|$)/);
     const slug = slugMatch ? slugMatch[1].toLowerCase() : undefined;
     let body: Record<string, unknown> = {};
     try {
@@ -144,15 +148,16 @@ function handleSubmissionRequest(url: string, requestBody: string) {
       };
       console.log(`[CodeSync] Detected LeetCode submission for problem: ${slug || 'unknown'}`);
     } else if ((body.source_code || body.code || body.user_code) && (body.language || body.lang)) {
+      const platform = isHackerRankHost ? 'hackerrank' : 'gfg';
       lastSubmittedRequest = {
-        platform: 'gfg',
+        platform,
         lang: String(body.language || body.lang),
         code: String(body.source_code || body.code || body.user_code),
-        questionId: String(body.problem_id || body.question_id || ''),
+        questionId: String(body.problem_id || body.question_id || body.challenge_id || ''),
         slug,
         timestamp: Date.now(),
       };
-      console.log(`[CodeSync] Detected GFG submission for problem: ${slug || 'unknown'}`);
+      console.log(`[CodeSync] Detected ${platform} submission for problem: ${slug || 'unknown'}`);
     }
   } catch (err) {
     console.debug('[CodeSync] Could not parse submission request body:', err);
@@ -246,6 +251,55 @@ function handleGfgStatusResponse(url: string, responseText: string) {
     pendingBySubmissionId.delete(submissionId);
   } catch (err) {
     console.debug('[CodeSync] Error parsing GFG status response:', err);
+  }
+}
+
+function handleHackerRankStatusResponse(url: string, responseText: string) {
+  try {
+    if (url.includes('/compile_tests')) return;
+    const data = JSON.parse(responseText);
+    const payload = data.model || data;
+    if (!payload || typeof payload !== 'object') return;
+    if (payload.is_sample === true || payload.compile_test === true) return;
+    if (String(payload.kind || '').toLowerCase() === 'compile_test') return;
+
+    const status = String(payload.status || '').trim().toLowerCase();
+    const isRejected =
+      status.includes('wrong') ||
+      status.includes('timeout') ||
+      status.includes('time limit') ||
+      status.includes('compilation') ||
+      status.includes('runtime') ||
+      status.includes('segmentation') ||
+      status.includes('abort') ||
+      status.includes('terminated');
+    if (isRejected) return;
+
+    if (status !== 'accepted' && payload.is_accepted !== true) return;
+
+    const idMatch = url.match(/\/submissions\/(\d+)/);
+    const submissionId = String(payload.id || (idMatch ? idMatch[1] : '') || Date.now());
+    const pending = pendingBySubmissionId.get(submissionId) || lastSubmittedRequest;
+    const code = String(payload.code || pending?.code || '') || extractGfgEditorCode();
+    if (!code.trim()) return;
+
+    const challengeSlug =
+      pending?.slug ||
+      payload.challenge?.slug ||
+      (window.location.pathname.match(/\/challenges\/([^/]+)/)?.[1]?.toLowerCase() ?? undefined);
+
+    notifyContentScript('SUBMISSION_ACCEPTED', {
+      platform: 'hackerrank',
+      submissionId,
+      questionId: pending?.questionId || String(payload.challenge_id || ''),
+      lang: pending?.lang || String(payload.language || '') || extractGfgLanguage() || 'cpp',
+      code,
+      slug: challengeSlug,
+      timestamp: Date.now(),
+    });
+    pendingBySubmissionId.delete(submissionId);
+  } catch (err) {
+    console.debug('[CodeSync] Error parsing HackerRank status response:', err);
   }
 }
 
@@ -345,6 +399,13 @@ window.fetch = async function (...args) {
     ) {
       const clone = response.clone();
       clone.text().then((text) => handleGfgStatusResponse(url, text)).catch(() => {});
+    } else if (
+      isHackerRankHost &&
+      url.includes('/submissions') &&
+      !url.includes('/compile_tests')
+    ) {
+      const clone = response.clone();
+      clone.text().then((text) => handleHackerRankStatusResponse(url, text)).catch(() => {});
     }
   } catch (err) {
     console.debug('[CodeSync] Fetch hook inspection error:', err);
@@ -374,7 +435,7 @@ XMLHttpRequest.prototype.send = function (
 ) {
   const url = this._codesyncUrl || '';
 
-  if (url.includes('/submit') && typeof body === 'string') {
+  if ((url.includes('/submit') || (isHackerRankHost && url.includes('/submissions'))) && typeof body === 'string') {
     handleSubmissionRequest(url, body);
   }
 
@@ -393,6 +454,13 @@ XMLHttpRequest.prototype.send = function (
       !url.includes('/compile')
     ) {
       handleGfgStatusResponse(url, this.responseText);
+    } else if (
+      isHackerRankHost &&
+      this.responseText &&
+      url.includes('/submissions') &&
+      !url.includes('/compile_tests')
+    ) {
+      handleHackerRankStatusResponse(url, this.responseText);
     }
   });
 

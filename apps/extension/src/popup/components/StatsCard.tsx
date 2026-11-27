@@ -53,10 +53,12 @@ export function StatsCard({ syncHistory }: StatsCardProps) {
         {/* Platform breakdown */}
         <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
           <span>Platforms</span>
-          <div className="flex items-center gap-2 font-mono">
+          <div className="flex items-center gap-1.5 font-mono">
             <span className="text-amber-300">LC: {analytics.platformBreakdown.leetcode}</span>
             <span className="text-slate-600">•</span>
             <span className="text-emerald-400">GFG: {analytics.platformBreakdown.gfg}</span>
+            <span className="text-slate-600">•</span>
+            <span className="text-sky-400">HR: {analytics.platformBreakdown.hackerrank}</span>
           </div>
         </div>
 

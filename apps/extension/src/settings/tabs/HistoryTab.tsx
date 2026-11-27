@@ -38,7 +38,7 @@ export function filterHistoryEntries(
   history: SyncHistoryEntry[],
   search: string,
   filter: 'ALL' | 'SUCCESS' | 'FAILED' | 'SKIPPED',
-  platformFilter: 'ALL' | 'leetcode' | 'gfg' = 'ALL',
+  platformFilter: 'ALL' | 'leetcode' | 'gfg' | 'hackerrank' = 'ALL',
 ): SyncHistoryEntry[] {
   const query = search.trim().toLowerCase();
   return history.filter((item) => {
@@ -59,7 +59,7 @@ export function filterHistoryEntries(
 export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'ALL' | 'SUCCESS' | 'FAILED' | 'SKIPPED'>('ALL');
-  const [platformFilter, setPlatformFilter] = useState<'ALL' | 'leetcode' | 'gfg'>('ALL');
+  const [platformFilter, setPlatformFilter] = useState<'ALL' | 'leetcode' | 'gfg' | 'hackerrank'>('ALL');
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [retryFeedback, setRetryFeedback] = useState<{ id: string; message: string; isError: boolean } | null>(null);
 
@@ -70,12 +70,18 @@ export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabP
   const filtered = filterHistoryEntries(history, search, filter, platformFilter);
   const analytics = computeSyncAnalytics(platformScopedHistory, Date.now(), 168);
   const totalPlatformSolves =
-    analytics.platformBreakdown.leetcode + analytics.platformBreakdown.gfg;
+    analytics.platformBreakdown.leetcode +
+    analytics.platformBreakdown.gfg +
+    analytics.platformBreakdown.hackerrank;
   const lcPct =
     totalPlatformSolves > 0
       ? Math.round((analytics.platformBreakdown.leetcode / totalPlatformSolves) * 100)
       : 0;
-  const gfgPct = totalPlatformSolves > 0 ? 100 - lcPct : 0;
+  const gfgPct =
+    totalPlatformSolves > 0
+      ? Math.round((analytics.platformBreakdown.gfg / totalPlatformSolves) * 100)
+      : 0;
+  const hrPct = totalPlatformSolves > 0 ? Math.max(0, 100 - lcPct - gfgPct) : 0;
 
   // Align 24-week grid to Sunday..Saturday rows so Mon/Wed/Fri labels match actual weekdays
   const firstDateParts = analytics.heatmapDays[0]?.date.split('-').map(Number);
@@ -146,6 +152,7 @@ export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabP
               { id: 'ALL', label: 'All Platforms' },
               { id: 'leetcode', label: 'LeetCode' },
               { id: 'gfg', label: 'GeeksforGeeks' },
+              { id: 'hackerrank', label: 'HackerRank' },
             ] as const
           ).map((tab) => (
             <button
@@ -206,15 +213,18 @@ export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabP
 
             <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800">
               <div className="text-[11px] text-slate-400">Platform Breakdown</div>
-              <div className="flex items-center gap-2 text-xs font-mono font-semibold mt-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-mono font-semibold mt-1.5">
                 <span className="text-amber-300">LC {analytics.platformBreakdown.leetcode}</span>
                 <span className="text-slate-600">/</span>
                 <span className="text-emerald-400">GFG {analytics.platformBreakdown.gfg}</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-sky-400">HR {analytics.platformBreakdown.hackerrank}</span>
               </div>
               {totalPlatformSolves > 0 && (
                 <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden flex">
                   <div className="bg-amber-400 h-full" style={{ width: `${lcPct}%` }} />
                   <div className="bg-emerald-500 h-full" style={{ width: `${gfgPct}%` }} />
+                  <div className="bg-sky-400 h-full" style={{ width: `${hrPct}%` }} />
                 </div>
               )}
             </div>
@@ -395,10 +405,16 @@ export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabP
                           className={`inline-block text-[10px] font-mono px-1.5 py-0.5 rounded border mr-2 ${
                             (item.platform || 'leetcode') === 'gfg'
                               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                              : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                              : (item.platform || 'leetcode') === 'hackerrank'
+                                ? 'bg-sky-500/10 border-sky-500/30 text-sky-400'
+                                : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                           }`}
                         >
-                          {(item.platform || 'leetcode') === 'gfg' ? 'GFG' : 'LC'}
+                          {(item.platform || 'leetcode') === 'gfg'
+                            ? 'GFG'
+                            : (item.platform || 'leetcode') === 'hackerrank'
+                              ? 'HR'
+                              : 'LC'}
                         </span>
                         <span className="font-mono text-slate-500 mr-1.5">
                           #{item.questionFrontendId}

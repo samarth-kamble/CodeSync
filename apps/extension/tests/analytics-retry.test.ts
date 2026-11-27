@@ -57,6 +57,7 @@ describe('Student Streak Tracker & Sync Analytics', () => {
     expect(analytics.platformBreakdown).toEqual({
       leetcode: 6,
       gfg: 2,
+      hackerrank: 0,
       codechef: 0,
     });
     expect(analytics.heatmapDays).toHaveLength(14);

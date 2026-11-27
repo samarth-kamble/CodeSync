@@ -8,6 +8,11 @@ import {
   fetchGfgProblemMetadata,
   normalizeGfgLanguage,
 } from '../gfg/client';
+import {
+  extractHackerRankSlugFromUrl,
+  fetchHackerRankProblemMetadata,
+  normalizeHackerRankLanguage,
+} from '../hackerrank/client';
 import { verifyAcceptedStatus } from '../leetcode/verdict-filter';
 import { mountCodeSyncBadge } from './status-badge';
 import { openFolderPickerDialog } from './folder-dialog';
@@ -16,7 +21,9 @@ import type { CodingPlatform, SubmissionData, ProblemMetadata } from '@leetsync/
 const currentPlatform: CodingPlatform =
   typeof window !== 'undefined' && window.location.hostname.includes('geeksforgeeks.org')
     ? 'gfg'
-    : 'leetcode';
+    : typeof window !== 'undefined' && window.location.hostname.includes('hackerrank.com')
+      ? 'hackerrank'
+      : 'leetcode';
 
 console.log('[CodeSync] Content script active on LeetCode page:', window.location.href);
 
@@ -123,6 +130,62 @@ interface InterceptedAcceptedPayload {
   timestamp: number;
 }
 
+function isHackerRankSolvedVisible(): boolean {
+  const text = document.body?.innerText || '';
+  if (
+    text.includes('Wrong Answer') ||
+    text.includes('Compilation Error') ||
+    text.includes('Runtime Error') ||
+    text.includes('Time limit exceeded')
+  ) {
+    return false;
+  }
+  return (
+    text.includes('Congratulations!') ||
+    text.includes('You solved this challenge') ||
+    text.includes('Status: Accepted')
+  );
+}
+
+async function syncHackerRankFromDom(isManual: boolean): Promise<void> {
+  if (!isHackerRankSolvedVisible()) {
+    if (isManual) {
+      badge?.setState('error', 'Pass HackerRank Submit first');
+    }
+    return;
+  }
+
+  if (!isManual && Date.now() - lastGfgNetworkSyncAt < 8000) {
+    return;
+  }
+
+  const slug = extractHackerRankSlugFromUrl(window.location.href);
+  if (!slug) {
+    if (isManual) badge?.setState('error', 'No challenge detected');
+    return;
+  }
+
+  const { code, lang } = await requestGfgEditorState();
+  if (!code.trim()) {
+    if (isManual) badge?.setState('error', 'Could not read editor');
+    return;
+  }
+
+  const dedupKey = isManual
+    ? `hr-manual-${Date.now()}`
+    : `hr-dom-${slug}-${code.length}-${code.slice(0, 40)}`;
+
+  await processAcceptedPayload({
+    platform: 'hackerrank',
+    submissionId: dedupKey,
+    questionId: '',
+    lang: lang || 'cpp',
+    code,
+    slug,
+    timestamp: Date.now(),
+  });
+}
+
 async function fetchLatestAcceptedSubmission(slug: string): Promise<SubmissionData | null> {
   try {
     const listRes = await fetch(`https://leetcode.com/api/submissions/${encodeURIComponent(slug)}/?offset=0&limit=10`, {
@@ -179,6 +242,10 @@ const badge = typeof document !== 'undefined'
       async () => {
         if (currentPlatform === 'gfg') {
           await syncGfgFromDom(true);
+          return;
+        }
+        if (currentPlatform === 'hackerrank') {
+          await syncHackerRankFromDom(true);
           return;
         }
         const slug = extractProblemSlugFromUrl(window.location.href);
@@ -342,7 +409,7 @@ async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
 
   // Mark as seen immediately to prevent race between /check/ interceptor and GraphQL fallback poller
   processedSubmissions.add(raw.submissionId);
-  if (platform === 'gfg' && !raw.submissionId.startsWith('gfg-dom-')) {
+  if ((platform === 'gfg' || platform === 'hackerrank') && !raw.submissionId.startsWith('gfg-dom-') && !raw.submissionId.startsWith('hr-dom-')) {
     lastGfgNetworkSyncAt = Date.now();
   }
 
@@ -354,7 +421,9 @@ async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
     raw.slug ||
     (platform === 'gfg'
       ? extractGfgSlugFromUrl(window.location.href)
-      : extractProblemSlugFromUrl(window.location.href));
+      : platform === 'hackerrank'
+        ? extractHackerRankSlugFromUrl(window.location.href)
+        : extractProblemSlugFromUrl(window.location.href));
   if (!slug) {
     console.warn('[CodeSync] Could not determine problem slug for submission:', raw.submissionId);
     return;
@@ -364,7 +433,11 @@ async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
   const needsBenchmarks =
     isLeetCode && (!raw.code?.trim() || raw.stats?.runtimePercentile === undefined);
   const [metadata, benchmarks] = await Promise.all([
-    platform === 'gfg' ? fetchGfgProblemMetadata(slug) : fetchProblemMetadata(slug),
+    platform === 'gfg'
+      ? fetchGfgProblemMetadata(slug)
+      : platform === 'hackerrank'
+        ? fetchHackerRankProblemMetadata(slug)
+        : fetchProblemMetadata(slug),
     needsBenchmarks ? fetchSubmissionBenchmarks(raw.submissionId) : Promise.resolve(null),
   ]);
 
@@ -386,7 +459,9 @@ async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
   const normalizedLang =
     platform === 'gfg'
       ? normalizeGfgLanguage(raw.lang)
-      : raw.lang || benchmarks?.langSlug || '';
+      : platform === 'hackerrank'
+        ? normalizeHackerRankLanguage(raw.lang)
+        : raw.lang || benchmarks?.langSlug || '';
 
   const submissionData: SubmissionData = {
     platform,
@@ -488,6 +563,30 @@ window.addEventListener('message', async (event: MessageEvent) => {
     await processAcceptedPayload(data.payload as InterceptedAcceptedPayload);
   }
 });
+
+if (currentPlatform === 'hackerrank' && typeof document !== 'undefined' && document.body) {
+  let wasHrSolvedVisible = isHackerRankSolvedVisible();
+  let hrSolveDebounceTimer: number | null = null;
+
+  const hrObserver = new MutationObserver(() => {
+    const nowSolvedVisible = isHackerRankSolvedVisible();
+    if (!wasHrSolvedVisible && nowSolvedVisible) {
+      if (hrSolveDebounceTimer !== null) {
+        window.clearTimeout(hrSolveDebounceTimer);
+      }
+      hrSolveDebounceTimer = window.setTimeout(() => {
+        hrSolveDebounceTimer = null;
+        void syncHackerRankFromDom(false);
+      }, 400);
+    }
+    wasHrSolvedVisible = nowSolvedVisible;
+  });
+
+  hrObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}
 
 if (currentPlatform === 'gfg' && typeof document !== 'undefined' && document.body) {
   let wasSolvedVisible = isGfgSolvedVisible();

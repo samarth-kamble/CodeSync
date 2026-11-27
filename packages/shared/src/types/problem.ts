@@ -1,4 +1,4 @@
-export type CodingPlatform = 'leetcode' | 'gfg' | 'codechef';
+export type CodingPlatform = 'leetcode' | 'gfg' | 'codechef' | 'hackerrank';
 
 export type ProblemDifficulty = 'Easy' | 'Medium' | 'Hard';
 

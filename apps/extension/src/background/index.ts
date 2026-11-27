@@ -14,6 +14,7 @@ import {
 import { getStorageItem, setStorageItem } from '../storage/index';
 import { fetchProblemMetadata } from '../leetcode/client';
 import { fetchGfgProblemMetadata } from '../gfg/client';
+import { fetchHackerRankProblemMetadata } from '../hackerrank/client';
 import { fetchRepositoryFolders } from '../github/repo-manager';
 import { syncSubmissionToGitHub, type SyncResult } from '../github/sync-engine';
 
@@ -108,7 +109,9 @@ export async function flushRetryQueue(force: boolean = false): Promise<{ process
     const problem =
       item.submission.platform === 'gfg'
         ? await fetchGfgProblemMetadata(item.submission.questionSlug)
-        : await fetchProblemMetadata(item.submission.questionSlug);
+        : item.submission.platform === 'hackerrank'
+          ? await fetchHackerRankProblemMetadata(item.submission.questionSlug)
+          : await fetchProblemMetadata(item.submission.questionSlug);
 
     const result = await syncSubmissionToGitHub({
       submission: item.submission,
@@ -253,7 +256,9 @@ async function handleSubmissionDetected(
   const problem =
     submission.platform === 'gfg'
       ? await fetchGfgProblemMetadata(submission.questionSlug)
-      : await fetchProblemMetadata(submission.questionSlug);
+      : submission.platform === 'hackerrank'
+        ? await fetchHackerRankProblemMetadata(submission.questionSlug)
+        : await fetchProblemMetadata(submission.questionSlug);
 
   // 5. Orchestrate sync via Git Data API
   const result = await syncSubmissionToGitHub({
@@ -396,6 +401,8 @@ async function handleRetrySync(
   }
 
   const submission: SubmissionData = {
+    platform: entry.platform,
+    problemUrl: entry.problemUrl,
     submissionId: entry.submissionId,
     questionId: entry.questionId || entry.questionFrontendId,
     questionFrontendId: entry.questionFrontendId,
@@ -416,7 +423,9 @@ async function handleRetrySync(
   const problem =
     submission.platform === 'gfg'
       ? await fetchGfgProblemMetadata(submission.questionSlug)
-      : await fetchProblemMetadata(submission.questionSlug);
+      : submission.platform === 'hackerrank'
+        ? await fetchHackerRankProblemMetadata(submission.questionSlug)
+        : await fetchProblemMetadata(submission.questionSlug);
   const result = await syncSubmissionToGitHub({
     submission,
     problem,

@@ -92,6 +92,8 @@ export function getProblemUrl(
   switch (platform) {
     case 'gfg':
       return `https://www.geeksforgeeks.org/problems/${slug}/1`;
+    case 'hackerrank':
+      return `https://www.hackerrank.com/challenges/${slug}/problem`;
     case 'codechef':
       return `https://www.codechef.com/problems/${slug}`;
     case 'leetcode':
