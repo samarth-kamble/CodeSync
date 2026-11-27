@@ -147,6 +147,16 @@ export function resolveCategorySubfolder(options?: FolderOrganizationOptions): s
     }
     case 'platform':
       return options?.platform ? sanitizePathComponent(options.platform) : 'leetcode';
+    case 'platform-topic': {
+      const plat = options?.platform ? sanitizePathComponent(options.platform) : 'leetcode';
+      const topic = resolvePrimaryTopicFolder(options?.langSlug, options?.topicTags);
+      return `${plat}/${topic}`;
+    }
+    case 'platform-difficulty': {
+      const plat = options?.platform ? sanitizePathComponent(options.platform) : 'leetcode';
+      const diff = options?.difficulty ? sanitizePathComponent(options.difficulty) : 'unknown';
+      return `${plat}/${diff}`;
+    }
     case 'flat':
     default:
       return '';

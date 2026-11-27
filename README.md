@@ -1,6 +1,6 @@
-# CodeSync — LeetCode to GitHub
+# CodeSync — Coding Solutions to GitHub
 
-**CodeSync** is a Manifest V3 Chrome Extension and companion Next.js platform that automatically synchronizes verified `Accepted` LeetCode submissions directly to your GitHub repository in clean, single atomic commits.
+**CodeSync** is a Manifest V3 Chrome Extension and companion Next.js platform that automatically synchronizes verified `Accepted` solutions from **LeetCode** and **GeeksforGeeks** directly to your GitHub repository in clean, single atomic commits.
 
 ---
 
@@ -25,6 +25,80 @@
 └── packages/
     └── shared/        # Shared TypeScript models, language mappings, & code/README formatters
 ```
+
+---
+
+## Sync Architecture & Repository Structure
+
+### End-to-End Flow
+
+```mermaid
+flowchart LR
+  A["LeetCode / GFG Page<br/>(Accepted Verdict)"] --> B["Content Script<br/>(Extract code, lang, slug)"]
+  B --> C{"Ask Folder<br/>Before Sync?"}
+  C -- "ON" --> D["Folder Picker Dialog<br/>(Choose / Create Folder)"]
+  C -- "OFF" --> E["Auto Path Resolver<br/>(paths.ts)"]
+  D --> F["Background Worker<br/>(Fetch Metadata + Formatters)"]
+  E --> F
+  F --> G["Atomic GitHub Commit<br/>(solution + README.md + root README.md)"]
+```
+
+### Target Repository Folder Layouts
+
+Configure your preferred layout in **Settings → Preferences → Folder Organization**:
+
+1. **By Platform (`platform` — Default)** — Separates LeetCode and GeeksforGeeks cleanly:
+   ```text
+   your-dsa-repo/
+   ├── README.md                          # Auto-updated progress table (all platforms)
+   ├── leetcode/
+   │   ├── 0001-two-sum/
+   │   │   ├── two-sum.java               # or solution.java / 0001-two-sum.java
+   │   │   └── README.md                  # Problem statement, difficulty badge, stats
+   │   └── 0198-house-robber/
+   │       ├── house-robber.py
+   │       └── README.md
+   └── gfg/
+       ├── second-largest/
+       │   ├── second-largest.java
+       │   └── README.md
+       └── kadanes-algorithm/
+           ├── kadanes-algorithm.cpp
+           └── README.md
+   ```
+
+2. **By Platform + Topic (`platform-topic`)** — Separates by platform and primary DSA tag:
+   ```text
+   your-dsa-repo/
+   ├── README.md
+   ├── leetcode/
+   │   ├── dynamic-programming/0198-house-robber/
+   │   ├── sql/0175-combine-two-tables/
+   │   └── array/0001-two-sum/
+   └── gfg/
+       ├── array/second-largest/
+       └── dynamic-programming/knapsack/
+   ```
+
+3. **By Platform + Difficulty (`platform-difficulty`)**:
+   ```text
+   your-dsa-repo/
+   ├── README.md
+   ├── leetcode/easy/0001-two-sum/
+   └── gfg/medium/kadanes-algorithm/
+   ```
+
+4. **Other Modes**:
+   - **By Topic (`topic`)**: `dynamic-programming/0198-house-robber/`, `sql/0175-combine-two-tables/`
+   - **By Difficulty (`difficulty`)**: `easy/0001-two-sum/`, `medium/...`, `hard/...`
+   - **By Language (`language`)**: `java/0001-two-sum/`, `python3/...`, `sql/...`
+   - **Flat (`flat`)**: `0001-two-sum/` directly in the repository root
+   - **Ask Folder Before Sync (`askFolderBeforeSync`)**: Overrides the auto-category per submission so you can place solutions into custom sheet folders (e.g., `striver-sde-sheet/arrays/0001-two-sum/`)
+
+### Generated Files per Submission
+- **Solution File** (`<slug>.<ext>`, `solution.<ext>`, or `<id>-<slug>.<ext>`): Includes a syntax-aware header comment with title, link, difficulty, runtime, and memory.
+- **Problem `README.md`**: Problem title, difficulty badge, topic tags, and formatted problem statement.
+- **Root `README.md`**: Auto-updated summary table tracking **Platform**, **Problem**, **Difficulty**, **Language**, and **Runtime/Memory** across all synced solutions.
 
 ---
 

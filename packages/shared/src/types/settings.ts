@@ -2,7 +2,14 @@ import type { GitHubUser } from './github.js';
 
 export type OverwritePolicy = 'always' | 'improved' | 'never';
 
-export type FolderOrganization = 'flat' | 'topic' | 'difficulty' | 'language' | 'platform';
+export type FolderOrganization =
+  | 'flat'
+  | 'topic'
+  | 'difficulty'
+  | 'language'
+  | 'platform'
+  | 'platform-topic'
+  | 'platform-difficulty';
 
 export type SolutionNamingStyle = 'slug' | 'solution' | 'numbered';
 
@@ -41,7 +48,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   overwritePolicy: 'always',
   commitMessageFormat: 'Time: {runtime} ({runtimePercentile}) | Memory: {memory} ({memoryPercentile}) - CodeSync',
   folderNamingFormat: '{zero-padded-id}-{slug}',
-  folderOrganization: 'flat',
+  folderOrganization: 'platform',
   solutionNamingStyle: 'slug',
   updateRootReadme: true,
   enableNotifications: true,

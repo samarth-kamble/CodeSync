@@ -160,9 +160,19 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               {[
                 {
-                  id: 'flat',
-                  title: 'Flat (Default)',
-                  example: '0704-binary-search/',
+                  id: 'platform',
+                  title: 'By Platform (Recommended)',
+                  example: 'gfg/kadanes-algorithm/',
+                },
+                {
+                  id: 'platform-topic',
+                  title: 'By Platform + Topic',
+                  example: 'leetcode/dynamic-programming/0198-house-robber/',
+                },
+                {
+                  id: 'platform-difficulty',
+                  title: 'By Platform + Difficulty',
+                  example: 'gfg/medium/kadanes-algorithm/',
                 },
                 {
                   id: 'topic',
@@ -180,12 +190,12 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
                   example: 'python3/0704-binary-search/',
                 },
                 {
-                  id: 'platform',
-                  title: 'By Platform (LeetCode, GFG)',
-                  example: 'gfg/kadanes-algorithm/',
+                  id: 'flat',
+                  title: 'Flat (Root)',
+                  example: '0704-binary-search/',
                 },
               ].map((mode) => {
-                const current = prefs.folderOrganization || 'flat';
+                const current = prefs.folderOrganization || 'platform';
                 return (
                   <label
                     key={mode.id}

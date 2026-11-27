@@ -23,6 +23,13 @@ function getAuthHeaders(token: string) {
   };
 }
 
+function throwGitHubApiError(action: string, res: Response): never {
+  if (res.status === 401) {
+    throw new Error('GitHub session expired (401) — reconnect in Settings');
+  }
+  throw new Error(`${action}: ${res.status} ${res.statusText}`);
+}
+
 export interface SyncResult {
   success: boolean;
   status: 'SUCCESS' | 'SKIPPED' | 'FAILED';
@@ -58,7 +65,7 @@ export async function getBranchRef(
   }
 
   if (!res.ok) {
-    throw new Error(`Failed to get branch reference: ${res.status} ${res.statusText}`);
+    throwGitHubApiError('Failed to get branch reference', res);
   }
 
   const data = await res.json();
@@ -78,7 +85,7 @@ export async function getCommitTreeSha(
   const res = await fetch(url, { headers: getAuthHeaders(token) });
 
   if (!res.ok) {
-    throw new Error(`Failed to get commit tree: ${res.status} ${res.statusText}`);
+    throwGitHubApiError('Failed to get commit tree', res);
   }
 
   const data = await res.json();
@@ -105,7 +112,7 @@ export async function createBlob(
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to create blob: ${res.status} ${res.statusText}`);
+    throwGitHubApiError('Failed to create blob', res);
   }
 
   const data = await res.json();

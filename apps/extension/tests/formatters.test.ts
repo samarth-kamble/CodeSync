@@ -92,6 +92,31 @@ describe('Path & Filename Formatters', () => {
       }),
     ).toBe('sql/0175-combine-two-tables');
 
+    // Platform, Platform + Topic, and Platform + Difficulty
+    expect(
+      getProblemFolderPath('second-largest', 'second-largest', '{zero-padded-id}-{slug}', {
+        organization: 'platform',
+        platform: 'gfg',
+      }),
+    ).toBe('gfg/second-largest-second-largest');
+
+    expect(
+      getProblemFolderPath('198', 'house-robber', '{zero-padded-id}-{slug}', {
+        organization: 'platform-topic',
+        platform: 'leetcode',
+        langSlug: 'python3',
+        topicTags: [{ name: 'Dynamic Programming', slug: 'dynamic-programming' }],
+      }),
+    ).toBe('leetcode/dynamic-programming/0198-house-robber');
+
+    expect(
+      getProblemFolderPath('1', 'kadanes-algorithm', '{slug}', {
+        organization: 'platform-difficulty',
+        platform: 'gfg',
+        difficulty: 'Medium',
+      }),
+    ).toBe('gfg/medium/kadanes-algorithm');
+
     // Custom parent folder from interactive dialog (including nested & root)
     expect(
       getProblemFolderPath('1', 'two-sum', '{zero-padded-id}-{slug}', {
