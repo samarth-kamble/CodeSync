@@ -179,6 +179,11 @@ export function PreferencesTab({ preferences, onUpdatePreferences }: Preferences
                   title: 'By Language',
                   example: 'python3/0704-binary-search/',
                 },
+                {
+                  id: 'platform',
+                  title: 'By Platform (LeetCode, GFG)',
+                  example: 'gfg/kadanes-algorithm/',
+                },
               ].map((mode) => {
                 const current = prefs.folderOrganization || 'flat';
                 return (

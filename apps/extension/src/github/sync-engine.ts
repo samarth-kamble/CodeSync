@@ -300,10 +300,13 @@ export function evaluateOverwritePolicy(
     return { shouldSync: false, reason: 'Submission has already been synchronized.' };
   }
 
-  // 2. Look for existing successful sync of this problem and language
+  // 2. Look for existing successful sync of this problem, platform, and language
+  const targetPlatform = submission.platform || 'leetcode';
   const prevSync = syncHistory.find(
     (entry) =>
-      entry.questionFrontendId === submission.questionFrontendId &&
+      (entry.platform || 'leetcode') === targetPlatform &&
+      (entry.questionFrontendId === submission.questionFrontendId ||
+        entry.questionSlug === submission.questionSlug) &&
       entry.lang.toLowerCase() === submission.lang.toLowerCase() &&
       entry.status === 'SUCCESS',
   );
@@ -370,11 +373,12 @@ export async function syncSubmissionToGitHub(options: SyncOptions): Promise<Sync
   } = options;
 
   const folderName = getProblemFolderPath(
-    submission.questionFrontendId,
+    submission.questionFrontendId || submission.questionSlug,
     submission.questionSlug,
     preferences.folderNamingFormat,
     {
       organization: preferences.folderOrganization,
+      platform: submission.platform || problem?.platform || 'leetcode',
       langSlug: submission.lang,
       difficulty: problem?.difficulty,
       topicTags: problem?.topicTags,
@@ -429,6 +433,8 @@ export async function syncSubmissionToGitHub(options: SyncOptions): Promise<Sync
   if (preferences.updateRootReadme !== false) {
     const projectedEntry: SyncHistoryEntry = {
       id: `projected_${submission.submissionId}`,
+      platform: submission.platform || problem?.platform || 'leetcode',
+      problemUrl: submission.problemUrl || problem?.problemUrl,
       submissionId: submission.submissionId,
       questionId: submission.questionId,
       questionFrontendId: submission.questionFrontendId,

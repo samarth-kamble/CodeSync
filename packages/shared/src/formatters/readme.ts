@@ -2,6 +2,7 @@ import type { ProblemMetadata, ProblemDifficulty } from '../types/problem.js';
 import type { SubmissionData } from '../types/submission.js';
 import { convertHtmlToMarkdown } from './html-to-md.js';
 import { getLanguageDefinition } from '../constants/languages.js';
+import { getProblemUrl } from './paths.js';
 
 export function getDifficultyShieldBadge(difficulty: ProblemDifficulty): string {
   switch (difficulty) {
@@ -25,9 +26,17 @@ export function generateProblemReadme(
 ): string {
   const parts: string[] = [];
 
-  // 1. Title & LeetCode link
-  const problemUrl = `https://leetcode.com/problems/${problem.titleSlug}/`;
-  parts.push(`# [${problem.questionFrontendId}. ${problem.title}](${problemUrl})`);
+  // 1. Title & problem link
+  const platform = problem.platform || submission?.platform || 'leetcode';
+  const problemUrl = getProblemUrl(
+    problem.titleSlug,
+    platform,
+    problem.problemUrl || submission?.problemUrl,
+  );
+  const headingLabel = problem.questionFrontendId
+    ? `${problem.questionFrontendId}. ${problem.title}`
+    : problem.title;
+  parts.push(`# [${headingLabel}](${problemUrl})`);
   parts.push('');
 
   // 2. Difficulty Badge

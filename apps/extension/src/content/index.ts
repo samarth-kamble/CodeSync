@@ -3,17 +3,110 @@ import {
   fetchProblemMetadata,
   fetchSubmissionBenchmarks,
 } from '../leetcode/client';
+import {
+  extractGfgSlugFromUrl,
+  fetchGfgProblemMetadata,
+  normalizeGfgLanguage,
+} from '../gfg/client';
 import { verifyAcceptedStatus } from '../leetcode/verdict-filter';
 import { mountCodeSyncBadge } from './status-badge';
 import { openFolderPickerDialog } from './folder-dialog';
-import type { SubmissionData, ProblemMetadata } from '@leetsync/shared';
+import type { CodingPlatform, SubmissionData, ProblemMetadata } from '@leetsync/shared';
+
+const currentPlatform: CodingPlatform =
+  typeof window !== 'undefined' && window.location.hostname.includes('geeksforgeeks.org')
+    ? 'gfg'
+    : 'leetcode';
 
 console.log('[CodeSync] Content script active on LeetCode page:', window.location.href);
 
 // Deduplication cache to avoid processing the same submission multiple times in the same session
 const processedSubmissions = new Set<string>();
+let lastGfgNetworkSyncAt = 0;
+
+function isGfgSolvedVisible(): boolean {
+  return Boolean(document.body?.innerText?.includes('Problem Solved Successfully'));
+}
+
+function requestGfgEditorState(): Promise<{ code: string; lang: string }> {
+  return new Promise((resolve) => {
+    const requestId = `gfg-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const timer = window.setTimeout(() => {
+      window.removeEventListener('message', onMessage);
+      resolve({ code: '', lang: '' });
+    }, 1200);
+
+    function onMessage(event: MessageEvent) {
+      if (event.source !== window) return;
+      const data = event.data;
+      if (
+        data?.source === 'CODESYNC_INTERCEPTOR' &&
+        data?.type === 'GFG_EDITOR_STATE' &&
+        data?.payload?.requestId === requestId
+      ) {
+        window.clearTimeout(timer);
+        window.removeEventListener('message', onMessage);
+        resolve({
+          code: String(data.payload.code || ''),
+          lang: String(data.payload.lang || ''),
+        });
+      }
+    }
+
+    window.addEventListener('message', onMessage);
+    window.postMessage(
+      {
+        source: 'CODESYNC_CONTENT',
+        type: 'REQUEST_GFG_EDITOR_STATE',
+        requestId,
+      },
+      '*',
+    );
+  });
+}
+
+async function syncGfgFromDom(isManual: boolean): Promise<void> {
+  if (!isGfgSolvedVisible()) {
+    if (isManual) {
+      badge?.setState('error', 'Pass GFG Submit first');
+    }
+    return;
+  }
+
+  if (!isManual && Date.now() - lastGfgNetworkSyncAt < 8000) {
+    return;
+  }
+
+  const slug = extractGfgSlugFromUrl(window.location.href);
+  if (!slug) {
+    if (isManual) badge?.setState('error', 'No problem detected');
+    return;
+  }
+
+  const { code, lang } = await requestGfgEditorState();
+  if (!code.trim()) {
+    if (isManual) badge?.setState('error', 'Could not read editor');
+    return;
+  }
+
+  const timeMatch = document.body?.innerText?.match(/Time Taken\s+([0-9.]+)/i);
+  const runtimeDisplay = timeMatch ? `${timeMatch[1]} s` : undefined;
+  const dedupKey = isManual ? `gfg-manual-${Date.now()}` : `gfg-dom-${slug}-${code.length}-${code.slice(0, 40)}`;
+
+  await processAcceptedPayload({
+    platform: 'gfg',
+    submissionId: dedupKey,
+    questionId: '',
+    lang: lang || 'cpp',
+    code,
+    slug,
+    stats: runtimeDisplay ? { runtimeDisplay } : undefined,
+    timestamp: Date.now(),
+  });
+}
 
 interface InterceptedAcceptedPayload {
+  platform?: CodingPlatform;
   submissionId: string;
   questionId: string;
   lang: string;
@@ -82,21 +175,28 @@ async function fetchLatestAcceptedSubmission(slug: string): Promise<SubmissionDa
 }
 
 const badge = typeof document !== 'undefined'
-  ? mountCodeSyncBadge(async () => {
-      const slug = extractProblemSlugFromUrl(window.location.href);
-      if (!slug) {
-        badge?.setState('error', 'No problem detected');
-        return;
-      }
-      badge?.setState('syncing', 'Fetching accepted...');
-      const submissionData = await fetchLatestAcceptedSubmission(slug);
-      if (!submissionData) {
-        badge?.setState('error', 'No Accepted found');
-        return;
-      }
-      const metadata = await fetchProblemMetadata(slug);
-      await syncWithOptionalDialog(submissionData, metadata);
-    })
+  ? mountCodeSyncBadge(
+      async () => {
+        if (currentPlatform === 'gfg') {
+          await syncGfgFromDom(true);
+          return;
+        }
+        const slug = extractProblemSlugFromUrl(window.location.href);
+        if (!slug) {
+          badge?.setState('error', 'No problem detected');
+          return;
+        }
+        badge?.setState('syncing', 'Fetching accepted...');
+        const submissionData = await fetchLatestAcceptedSubmission(slug);
+        if (!submissionData) {
+          badge?.setState('error', 'No Accepted found');
+          return;
+        }
+        const metadata = await fetchProblemMetadata(slug);
+        await syncWithOptionalDialog(submissionData, metadata);
+      },
+      { bottomOffsetPx: currentPlatform === 'gfg' ? 72 : 20 },
+    )
   : null;
 
 interface DialogContextResponse {
@@ -227,7 +327,10 @@ function dispatchToBackground(
 }
 
 async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
-  if (!raw.submissionId || !/^\d+$/.test(raw.submissionId)) {
+  const platform: CodingPlatform = raw.platform || currentPlatform;
+  const isLeetCode = platform === 'leetcode';
+
+  if (!raw.submissionId || (isLeetCode && !/^\d+$/.test(raw.submissionId))) {
     console.debug('[CodeSync] Ignoring non-submission check event:', raw.submissionId);
     return;
   }
@@ -239,21 +342,29 @@ async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
 
   // Mark as seen immediately to prevent race between /check/ interceptor and GraphQL fallback poller
   processedSubmissions.add(raw.submissionId);
+  if (platform === 'gfg' && !raw.submissionId.startsWith('gfg-dom-')) {
+    lastGfgNetworkSyncAt = Date.now();
+  }
 
   if (!verifyAcceptedStatus('Accepted')) {
     return;
   }
 
-  const slug = raw.slug || extractProblemSlugFromUrl(window.location.href);
+  const slug =
+    raw.slug ||
+    (platform === 'gfg'
+      ? extractGfgSlugFromUrl(window.location.href)
+      : extractProblemSlugFromUrl(window.location.href));
   if (!slug) {
     console.warn('[CodeSync] Could not determine problem slug for submission:', raw.submissionId);
     return;
   }
 
   badge?.setState('syncing', 'Fetching metadata...');
-  const needsBenchmarks = !raw.code?.trim() || raw.stats?.runtimePercentile === undefined;
+  const needsBenchmarks =
+    isLeetCode && (!raw.code?.trim() || raw.stats?.runtimePercentile === undefined);
   const [metadata, benchmarks] = await Promise.all([
-    fetchProblemMetadata(slug),
+    platform === 'gfg' ? fetchGfgProblemMetadata(slug) : fetchProblemMetadata(slug),
     needsBenchmarks ? fetchSubmissionBenchmarks(raw.submissionId) : Promise.resolve(null),
   ]);
 
@@ -272,14 +383,21 @@ async function processAcceptedPayload(raw: InterceptedAcceptedPayload) {
     memoryPercentile: raw.stats?.memoryPercentile ?? benchmarks?.memoryPercentile,
   };
 
+  const normalizedLang =
+    platform === 'gfg'
+      ? normalizeGfgLanguage(raw.lang)
+      : raw.lang || benchmarks?.langSlug || '';
+
   const submissionData: SubmissionData = {
+    platform,
+    problemUrl: metadata?.problemUrl,
     submissionId: raw.submissionId,
     questionId: raw.questionId || metadata?.questionId || '',
     questionFrontendId: metadata?.questionFrontendId || '',
     questionTitle: metadata?.title || slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
     questionSlug: slug,
     status: 'Accepted',
-    lang: raw.lang || benchmarks?.langSlug || '',
+    lang: normalizedLang,
     code: finalCode,
     timestamp: raw.timestamp || Date.now(),
     stats: mergedStats,
@@ -370,3 +488,27 @@ window.addEventListener('message', async (event: MessageEvent) => {
     await processAcceptedPayload(data.payload as InterceptedAcceptedPayload);
   }
 });
+
+if (currentPlatform === 'gfg' && typeof document !== 'undefined' && document.body) {
+  let wasSolvedVisible = isGfgSolvedVisible();
+  let solveDebounceTimer: number | null = null;
+
+  const gfgObserver = new MutationObserver(() => {
+    const nowSolvedVisible = isGfgSolvedVisible();
+    if (!wasSolvedVisible && nowSolvedVisible) {
+      if (solveDebounceTimer !== null) {
+        window.clearTimeout(solveDebounceTimer);
+      }
+      solveDebounceTimer = window.setTimeout(() => {
+        solveDebounceTimer = null;
+        void syncGfgFromDom(false);
+      }, 350);
+    }
+    wasSolvedVisible = nowSolvedVisible;
+  });
+
+  gfgObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}

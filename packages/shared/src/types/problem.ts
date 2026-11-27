@@ -1,3 +1,5 @@
+export type CodingPlatform = 'leetcode' | 'gfg' | 'codechef';
+
 export type ProblemDifficulty = 'Easy' | 'Medium' | 'Hard';
 
 export interface TopicTag {
@@ -7,6 +9,8 @@ export interface TopicTag {
 }
 
 export interface ProblemMetadata {
+  platform?: CodingPlatform;
+  problemUrl?: string;
   questionId: string;
   questionFrontendId: string;
   title: string;

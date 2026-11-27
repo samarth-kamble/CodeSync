@@ -1,7 +1,7 @@
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { GitCommit, ExternalLink, AlertCircle } from 'lucide-react';
-import type { SyncHistoryEntry } from '@leetsync/shared';
+import { getProblemUrl, type SyncHistoryEntry } from '@leetsync/shared';
 
 interface RecentSubmissionsListProps {
   history: SyncHistoryEntry[];
@@ -97,11 +97,11 @@ export function RecentSubmissionsList({ history, onOpenSettings }: RecentSubmiss
                   </a>
                 )}
                 <a
-                  href={`https://leetcode.com/problems/${item.questionSlug}/`}
+                  href={getProblemUrl(item.questionSlug, item.platform || 'leetcode', item.problemUrl)}
                   target="_blank"
                   rel="noreferrer"
                   className="p-1 rounded text-slate-400 hover:text-orange-400 hover:bg-slate-800"
-                  title="View problem on LeetCode"
+                  title="View problem"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>

@@ -1,5 +1,5 @@
 import { getLanguageDefinition } from '../constants/languages.js';
-import type { ProblemDifficulty, TopicTag } from '../types/problem.js';
+import type { CodingPlatform, ProblemDifficulty, TopicTag } from '../types/problem.js';
 import type { FolderOrganization, SolutionNamingStyle } from '../types/settings.js';
 
 export type { SolutionNamingStyle };
@@ -72,11 +72,32 @@ export function padProblemNumber(frontendQuestionId: string | number, padLength:
 
 export interface FolderOrganizationOptions {
   organization?: FolderOrganization;
+  platform?: CodingPlatform;
   langSlug?: string;
   difficulty?: ProblemDifficulty;
   topicTags?: TopicTag[];
   /** Explicit parent folder chosen by the user in the interactive dialog ('' = root) */
   customParentFolder?: string;
+}
+
+/**
+ * Resolves the canonical problem URL for a given coding platform.
+ */
+export function getProblemUrl(
+  slug: string,
+  platform: CodingPlatform = 'leetcode',
+  customUrl?: string,
+): string {
+  if (customUrl) return customUrl;
+  switch (platform) {
+    case 'gfg':
+      return `https://www.geeksforgeeks.org/problems/${slug}/1`;
+    case 'codechef':
+      return `https://www.codechef.com/problems/${slug}`;
+    case 'leetcode':
+    default:
+      return `https://leetcode.com/problems/${slug}/`;
+  }
 }
 
 /**
@@ -124,6 +145,8 @@ export function resolveCategorySubfolder(options?: FolderOrganizationOptions): s
       if (!lang) return 'other';
       return SQL_LANG_SLUGS.has(lang) ? 'sql' : sanitizePathComponent(lang);
     }
+    case 'platform':
+      return options?.platform ? sanitizePathComponent(options.platform) : 'leetcode';
     case 'flat':
     default:
       return '';

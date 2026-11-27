@@ -12,6 +12,7 @@ import {
 } from '@leetsync/shared';
 import { getStorageItem, setStorageItem } from '../storage/index';
 import { fetchProblemMetadata } from '../leetcode/client';
+import { fetchGfgProblemMetadata } from '../gfg/client';
 import { fetchRepositoryFolders } from '../github/repo-manager';
 import { syncSubmissionToGitHub, type SyncResult } from '../github/sync-engine';
 
@@ -84,8 +85,11 @@ async function handleSubmissionDetected(
     return { status: 'AUTO_SYNC_DISABLED', message: 'Auto-sync is disabled.' };
   }
 
-  // 4. Retrieve problem metadata via LeetCode GraphQL client
-  const problem = await fetchProblemMetadata(submission.questionSlug);
+  // 4. Retrieve problem metadata via appropriate platform client
+  const problem =
+    submission.platform === 'gfg'
+      ? await fetchGfgProblemMetadata(submission.questionSlug)
+      : await fetchProblemMetadata(submission.questionSlug);
 
   // 5. Orchestrate sync via Git Data API
   const result = await syncSubmissionToGitHub({
@@ -105,6 +109,8 @@ async function handleSubmissionDetected(
   if (result.status === 'SUCCESS') {
     const newEntry: SyncHistoryEntry = {
       id: `sync_${Date.now()}_${submission.submissionId}`,
+      platform: submission.platform || problem?.platform || 'leetcode',
+      problemUrl: submission.problemUrl || problem?.problemUrl,
       submissionId: submission.submissionId,
       questionId: submission.questionId,
       questionFrontendId: submission.questionFrontendId,
@@ -149,6 +155,8 @@ async function handleSubmissionDetected(
   // FAILED state
   const failedEntry: SyncHistoryEntry = {
     id: `sync_fail_${Date.now()}_${submission.submissionId}`,
+    platform: submission.platform || problem?.platform || 'leetcode',
+    problemUrl: submission.problemUrl || problem?.problemUrl,
     submissionId: submission.submissionId,
     questionId: submission.questionId,
     questionFrontendId: submission.questionFrontendId,
@@ -231,7 +239,10 @@ async function handleRetrySync(
     },
   };
 
-  const problem = await fetchProblemMetadata(submission.questionSlug);
+  const problem =
+    submission.platform === 'gfg'
+      ? await fetchGfgProblemMetadata(submission.questionSlug)
+      : await fetchProblemMetadata(submission.questionSlug);
   const result = await syncSubmissionToGitHub({
     submission,
     problem,
@@ -313,7 +324,7 @@ async function handleGetDialogContext(payload: {
   const { submission, problem } = payload;
   const padded = padProblemNumber(submission.questionFrontendId);
   const slug = sanitizePathComponent(submission.questionSlug);
-  const problemFolderName = `${padded}-${slug}`;
+  const problemFolderName = padded ? `${padded}-${slug}` : slug;
   const solutionFileName = getSolutionFilename(
     submission.questionSlug,
     submission.lang,
@@ -322,6 +333,7 @@ async function handleGetDialogContext(payload: {
   );
   const defaultParentFolder = resolveCategorySubfolder({
     organization: preferences.folderOrganization,
+    platform: submission.platform || problem?.platform || 'leetcode',
     langSlug: submission.lang,
     difficulty: problem?.difficulty,
     topicTags: problem?.topicTags,

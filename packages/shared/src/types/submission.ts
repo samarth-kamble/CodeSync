@@ -1,3 +1,5 @@
+import type { CodingPlatform } from './problem.js';
+
 export type SubmissionStatus =
   | 'Accepted'
   | 'Wrong Answer'
@@ -20,6 +22,8 @@ export interface PerformanceStats {
 }
 
 export interface SubmissionData {
+  platform?: CodingPlatform;
+  problemUrl?: string;
   submissionId: string;
   questionId: string;
   questionFrontendId: string;

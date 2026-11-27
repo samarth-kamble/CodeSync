@@ -2,7 +2,7 @@ import type { GitHubUser } from './github.js';
 
 export type OverwritePolicy = 'always' | 'improved' | 'never';
 
-export type FolderOrganization = 'flat' | 'topic' | 'difficulty' | 'language';
+export type FolderOrganization = 'flat' | 'topic' | 'difficulty' | 'language' | 'platform';
 
 export type SolutionNamingStyle = 'slug' | 'solution' | 'numbered';
 

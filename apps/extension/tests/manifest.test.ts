@@ -31,6 +31,8 @@ describe('Chrome Web Store Manifest Compliance', () => {
     expect(manifest.host_permissions).not.toContain('*://*/*');
     expect(manifest.host_permissions).toContain('https://api.github.com/*');
     expect(manifest.host_permissions).toContain('https://leetcode.com/*');
+    expect(manifest.host_permissions).toContain('https://*.geeksforgeeks.org/*');
+    expect(manifest.host_permissions).toContain('https://practiceapi.geeksforgeeks.org/*');
   });
 
   it('includes valid PNG files for all declared icon sizes', () => {

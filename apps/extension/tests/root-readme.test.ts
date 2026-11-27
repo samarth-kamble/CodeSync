@@ -78,7 +78,7 @@ describe('Root Repository README Progress Table', () => {
   it('deduplicates solved problems, counts difficulties, and sorts numerically', () => {
     const md = generateRootReadme(entries, 'user/leetcode');
 
-    expect(md).toContain('# user/leetcode — LeetCode Solutions');
+    expect(md).toContain('# user/leetcode — Coding Solutions');
     expect(md).toContain('Total%20Solved-2-blue');
     expect(md).toContain('Easy-2-brightgreen');
     expect(md).toContain('Medium-0-orange');

@@ -1,6 +1,7 @@
 import type { SubmissionData } from '../types/submission.js';
 import type { ProblemMetadata } from '../types/problem.js';
 import { getLanguageDefinition } from '../constants/languages.js';
+import { getProblemUrl } from './paths.js';
 
 export type CommentSyntax = 'block' | 'hash' | 'dash';
 
@@ -29,7 +30,8 @@ export function generateSolutionHeader(
   const id = problem?.questionFrontendId || submission.questionFrontendId;
   const slug = problem?.titleSlug || submission.questionSlug;
   const difficulty = problem?.difficulty || 'Unknown';
-  const problemUrl = `https://leetcode.com/problems/${slug}/`;
+  const platform = problem?.platform || submission.platform || 'leetcode';
+  const problemUrl = getProblemUrl(slug, platform, problem?.problemUrl || submission.problemUrl);
   const dateStr = new Date(submission.timestamp || Date.now()).toISOString().split('T')[0];
 
   const runtime =

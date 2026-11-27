@@ -1,4 +1,4 @@
-import type { ProblemDifficulty } from './problem.js';
+import type { ProblemDifficulty, CodingPlatform } from './problem.js';
 
 export interface GitHubUser {
   login: string;
@@ -35,6 +35,8 @@ export interface SyncCommitPayload {
 
 export interface SyncHistoryEntry {
   id: string;
+  platform?: CodingPlatform;
+  problemUrl?: string;
   submissionId: string;
   questionId?: string;
   questionFrontendId: string;

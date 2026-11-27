@@ -14,7 +14,7 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
-import type { SyncHistoryEntry } from '@leetsync/shared';
+import { getProblemUrl, type SyncHistoryEntry } from '@leetsync/shared';
 
 interface HistoryTabProps {
   history: SyncHistoryEntry[];
@@ -280,11 +280,11 @@ export function HistoryTab({ history, onClearHistory, onRetrySync }: HistoryTabP
                             </Button>
                           )}
                           <a
-                            href={`https://leetcode.com/problems/${item.questionSlug}/`}
+                            href={getProblemUrl(item.questionSlug, item.platform || 'leetcode', item.problemUrl)}
                             target="_blank"
                             rel="noreferrer"
                             className="p-1 rounded text-slate-400 hover:text-slate-200"
-                            title="View Problem on LeetCode"
+                            title="View Problem"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>

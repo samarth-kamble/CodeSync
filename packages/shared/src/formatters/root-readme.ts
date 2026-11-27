@@ -1,5 +1,6 @@
 import type { SyncHistoryEntry } from '../types/github.js';
 import { getLanguageDefinition } from '../constants/languages.js';
+import { getProblemUrl } from './paths.js';
 
 /**
  * Generates a root repository README.md summarizing solved LeetCode problems
@@ -37,11 +38,11 @@ export function generateRootReadme(
   }
 
   const lines: string[] = [];
-  const title = repoFullName ? `# ${repoFullName} — LeetCode Solutions` : '# LeetCode Solutions';
+  const title = repoFullName ? `# ${repoFullName} — Coding Solutions` : '# Coding Solutions';
   lines.push(title);
   lines.push('');
   lines.push(
-    'Collection of LeetCode solutions automatically synchronized via **CodeSync**.',
+    'Collection of coding solutions automatically synchronized via **CodeSync**.',
   );
   lines.push('');
 
@@ -62,7 +63,8 @@ export function generateRootReadme(
 
   for (const item of solved) {
     const num = item.questionFrontendId;
-    const problemLink = `[${item.questionTitle}](https://leetcode.com/problems/${item.questionSlug}/)`;
+    const problemHref = getProblemUrl(item.questionSlug, item.platform || 'leetcode', item.problemUrl);
+    const problemLink = `[${item.questionTitle}](${problemHref})`;
     const diff = item.difficulty || '—';
     const langName = getLanguageDefinition(item.lang).name;
     const runtime = item.runtimeDisplay || (item.runtimeMs !== undefined ? `${item.runtimeMs} ms` : '—');

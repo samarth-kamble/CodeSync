@@ -23,13 +23,23 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://leetcode.com/problems/*", "*://*.leetcode.com/problems/*"],
+      "matches": [
+        "*://leetcode.com/problems/*",
+        "*://*.leetcode.com/problems/*",
+        "*://*.geeksforgeeks.org/problems/*",
+        "*://practice.geeksforgeeks.org/problems/*"
+      ],
       "js": ["src/content/interceptor.iife.ts"],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["*://leetcode.com/problems/*", "*://*.leetcode.com/problems/*"],
+      "matches": [
+        "*://leetcode.com/problems/*",
+        "*://*.leetcode.com/problems/*",
+        "*://*.geeksforgeeks.org/problems/*",
+        "*://practice.geeksforgeeks.org/problems/*"
+      ],
       "js": ["src/content/index.ts"],
       "run_at": "document_idle"
     }
@@ -42,6 +52,8 @@
   "host_permissions": [
     "https://leetcode.com/*",
     "https://*.leetcode.com/*",
+    "https://*.geeksforgeeks.org/*",
+    "https://practiceapi.geeksforgeeks.org/*",
     "https://api.github.com/*"
   ]
 }

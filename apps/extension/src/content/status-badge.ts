@@ -6,7 +6,10 @@ export interface BadgeController {
 
 const BADGE_HOST_ID = 'codesync-status-host';
 
-export function mountCodeSyncBadge(onManualSync?: () => Promise<void>): BadgeController {
+export function mountCodeSyncBadge(
+  onManualSync?: () => Promise<void>,
+  options?: { bottomOffsetPx?: number },
+): BadgeController {
   const existing = document.getElementById(BADGE_HOST_ID);
   if (existing) {
     existing.remove();
@@ -15,7 +18,7 @@ export function mountCodeSyncBadge(onManualSync?: () => Promise<void>): BadgeCon
   const host = document.createElement('div');
   host.id = BADGE_HOST_ID;
   host.style.position = 'fixed';
-  host.style.bottom = '20px';
+  host.style.bottom = `${options?.bottomOffsetPx ?? 20}px`;
   host.style.right = '20px';
   host.style.zIndex = '2147483647';
 
